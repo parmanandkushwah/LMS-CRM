@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #F8FAFC;
+    --sidebar: #ffffff;
+    --card: #ffffff;
+    --border: #E5E7EB;
+    --heading: #111827;
+    --text: #475569;
+    --muted: #94A3B8;
+    --primary: #10B981;
+    --primary-hover: #059669;
+  }
+  .dark {
+    --bg: #0B1120;
+    --sidebar: #111827;
+    --card: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --heading: #F9FAFB;
+    --text: #94A3B8;
+    --muted: #64748B;
+    --primary: #10B981;
+    --primary-hover: #059669;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    @apply antialiased;
+  }
+  h1,h2,h3,h4,h5,h6 { color: var(--heading); }
+}
+
+@layer components {
+  .glass {
+    background: var(--card);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border);
+  }
+  .glass-sidebar {
+    background: var(--sidebar);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-right: 1px solid var(--border);
+  }
+  .gradient-border {
+    position: relative;
+    background: var(--card);
+    border-radius: 16px;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.4), rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .shimmer-bg {
+    background: linear-gradient(90deg, var(--card) 25%, rgba(255,255,255,0.1) 50%, var(--card) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+  .dark .shimmer-bg {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+  }
+}
+
+@layer utilities {
+  .text-heading { color: var(--heading); }
+  .text-body { color: var(--text); }
+  .text-muted { color: var(--muted); }
+  .bg-card { background: var(--card); }
+  .bg-sidebar { background: var(--sidebar); }
+  .bg-app { background: var(--bg); }
+  .border-app { border-color: var(--border); }
+}
