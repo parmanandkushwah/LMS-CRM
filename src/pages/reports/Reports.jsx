@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, TrendingUp, DollarSign, Users, Target, Loader2, AlertCircle } from 'lucide-react'
+import { Download, TrendingUp, DollarSign, Users, Target, AlertCircle } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -160,9 +160,47 @@ export default function Reports() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted">
-        <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="ml-3 text-sm">Loading reports…</span>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="shimmer-bg h-6 w-40 rounded-lg mb-2" />
+            <div className="shimmer-bg h-4 w-32 rounded-lg" />
+          </div>
+          <div className="shimmer-bg h-8 w-24 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-5 space-y-3">
+              <div className="shimmer-bg h-4 w-24 rounded-lg" />
+              <div className="shimmer-bg h-8 w-32 rounded-lg" />
+              <div className="shimmer-bg h-3 w-20 rounded-lg" />
+            </div>
+          ))}
+        </div>
+        <div className="glass rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="shimmer-bg h-5 w-40 rounded-lg mb-2" />
+              <div className="shimmer-bg h-3 w-48 rounded-lg" />
+            </div>
+            <div className="shimmer-bg h-8 w-8 rounded-lg" />
+          </div>
+          <div className="h-[280px] shimmer-bg rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-5 space-y-4">
+              <div className="shimmer-bg h-5 w-32 rounded-lg" />
+              <div className="h-[200px] shimmer-bg rounded-xl" />
+            </div>
+          ))}
+        </div>
+        <div className="glass rounded-2xl p-5 space-y-4">
+          <div className="shimmer-bg h-5 w-40 rounded-lg" />
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => <div key={i} className="shimmer-bg h-10 rounded-lg" />)}
+          </div>
+        </div>
       </div>
     )
   }
