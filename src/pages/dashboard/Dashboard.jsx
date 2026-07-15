@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Users, Trophy, XCircle, DollarSign,
+  Users, Trophy, XCircle, IndianRupee,
   Activity, UserPlus, Bell, CheckSquare, CalendarDays,
   ChevronDown
 } from 'lucide-react'
@@ -141,7 +141,7 @@ function RevenueChart({ data, loading, period }) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `$${v / 1000}k` : v} />
+            <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} />
             <Tooltip content={<CustomTooltip />} />
             <Area type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} fill="url(#revGrad)" name="revenue" />
             <Area type="monotone" dataKey="paid" stroke="#3B82F6" strokeWidth={2} fill="url(#paidGrad)" name="paid" />
@@ -436,7 +436,7 @@ export default function Dashboard() {
     return all
   }, [stats])
 
-  const followUpsCount = upcoming.filter(a => a.type === 'follow_up' || a.outcome === 'follow_up').length
+  const followUpsCount = upcoming.length
   const tasksCount = upcoming.filter(a => a.type === 'task').length
   const meetingsCount = upcoming.filter(a => a.type === 'meeting').length
 
@@ -445,7 +445,7 @@ export default function Dashboard() {
 
   // Revenue for selected period from report data
   const periodRevenue = useMemo(() => {
-    return revenueMonthly.reduce((sum, d) => sum + (parseFloat(d.paid) || 0), 0)
+    return revenueMonthly.reduce((sum, d) => sum + (parseFloat(d.total) || 0), 0)
   }, [revenueMonthly])
 
   const statCards = [
@@ -480,7 +480,7 @@ export default function Dashboard() {
         : (statsLoading ? '—' : formatCurrency(stats?.revenue?.total || 0)),
       change: revenueGrowth !== null && revenueGrowth !== undefined ? Math.abs(parseFloat(revenueGrowth)) : undefined,
       changeType: growthPositive ? 'positive' : 'negative',
-      icon: DollarSign, iconColor: 'text-primary-500', iconBg: 'bg-primary-500/10',
+      icon: IndianRupee, iconColor: 'text-primary-500', iconBg: 'bg-primary-500/10',
       loading: isAdminOrManager ? revenueLoading : statsLoading,
     },
     {
