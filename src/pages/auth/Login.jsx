@@ -1,15 +1,15 @@
-import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Zap, Mail, Lock, ArrowRight, Globe, ExternalLink } from 'lucide-react'
+import { Zap, Mail, Lock, ArrowRight } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/FormElements'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { useState } from 'react'
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -33,7 +33,6 @@ export default function Login() {
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { email: 'alex@leadflow.com', password: 'password123' }
   })
 
   const onSubmit = async (data) => {
@@ -70,7 +69,6 @@ export default function Login() {
               The modern CRM built for high-performance sales teams.
             </p>
 
-            {/* Feature list */}
             <div className="space-y-4 text-left">
               {[
                 { title: 'Smart Lead Management', desc: 'Track and nurture leads through every stage' },
@@ -119,22 +117,6 @@ export default function Login() {
             <p className="text-sm text-muted mt-1">Sign in to your account to continue</p>
           </div>
 
-          {/* Social Login */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <Button variant="secondary" size="md" onClick={() => toast('Social login coming soon!')}>
-              <Globe className="w-4 h-4" />Google
-            </Button>
-            <Button variant="secondary" size="md" onClick={() => toast('Social login coming soon!')}>
-              <ExternalLink className="w-4 h-4" />GitHub
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-border-app" style={{ background: 'var(--border)' }} />
-            <span className="text-xs text-muted">or continue with email</span>
-            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-          </div>
-
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
               label="Email Address"
@@ -165,16 +147,7 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary-500 hover:text-primary-600 font-medium transition-colors">
-              Create one free
-            </Link>
-          </p>
 
-          <p className="text-center text-xs text-muted mt-4 opacity-60">
-            Demo: alex@leadflow.com / password123
-          </p>
         </motion.div>
       </div>
     </div>

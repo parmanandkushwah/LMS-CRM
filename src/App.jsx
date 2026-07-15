@@ -8,7 +8,6 @@ import AppLayout from './layouts/AppLayout'
 
 // Auth Pages
 import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
 
 // App Pages
 import Dashboard from './pages/dashboard/Dashboard'
@@ -19,6 +18,7 @@ import Customers from './pages/customers/Customers'
 import Employees from './pages/employees/Employees'
 import Tasks from './pages/tasks/Tasks'
 import FollowUps from './pages/followups/FollowUps'
+import Quotations from './pages/quotations/Quotations'
 import Reports from './pages/reports/Reports'
 import Settings from './pages/settings/Settings'
 import { Calendar, Companies, Documents, Profile, Subscription } from './pages/misc/MiscPages'
@@ -37,7 +37,6 @@ export default function App() {
             <Routes>
               {/* Public */}
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
               <Route path="/403" element={<Forbidden />} />
               <Route path="/500" element={<ServerError />} />
 
@@ -57,6 +56,7 @@ export default function App() {
                 <Route path="employees" element={<Employees />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="followups" element={<FollowUps />} />
+                <Route path="quotations" element={<Quotations />} />
                 <Route path="calendar" element={<Calendar />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="documents" element={<Documents />} />

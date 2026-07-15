@@ -1,15 +1,16 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Users, Kanban, UserCheck, Building2, UserCog,
-  CheckSquare, Bell, CalendarDays, BarChart3, FolderOpen, Settings,
-  ChevronLeft, ChevronRight, LogOut, CreditCard, User, Zap, X
+  CheckSquare, Bell, CalendarDays, BarChart3, FolderOpen,
+  ChevronLeft, ChevronRight, Zap, X, FileText
 } from 'lucide-react'
 import { cn } from '../utils'
 import { useSidebar } from '../contexts/SidebarContext'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/ui'
-import toast from 'react-hot-toast'
+import api from '../services/api'
 
 const NAV_SECTIONS = [
   {
@@ -33,6 +34,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/tasks', label: 'Tasks', icon: CheckSquare },
       { path: '/followups', label: 'Follow Ups', icon: Bell },
+      { path: '/quotations', label: 'Quotations', icon: FileText },
       { path: '/calendar', label: 'Calendar', icon: CalendarDays },
     ]
   },
@@ -45,13 +47,7 @@ const NAV_SECTIONS = [
   },
 ]
 
-const BOTTOM_ITEMS = [
-  { path: '/settings', label: 'Settings', icon: Settings },
-  { path: '/subscription', label: 'Subscription', icon: CreditCard },
-  { path: '/profile', label: 'Profile', icon: User },
-]
-
-function NavItem({ item, collapsed }) {
+function NavItem({ item, collapsed, badge = 0 }) {
   return (
     <NavLink
       to={item.path}
@@ -72,7 +68,14 @@ function NavItem({ item, collapsed }) {
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             />
           )}
-          <item.icon className={cn('w-4.5 h-4.5 flex-shrink-0 relative z-10 transition-transform group-hover:scale-110', isActive ? 'text-primary-500' : '')} style={{ width: 18, height: 18 }} />
+          <span className="relative z-10 flex-shrink-0">
+            <item.icon className={cn('transition-transform group-hover:scale-110', isActive ? 'text-primary-500' : '')} style={{ width: 18, height: 18 }} />
+            {collapsed && badge > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {badge > 9 ? '9+' : badge}
+              </span>
+            )}
+          </span>
           <AnimatePresence>
             {!collapsed && (
               <motion.span
@@ -86,7 +89,12 @@ function NavItem({ item, collapsed }) {
               </motion.span>
             )}
           </AnimatePresence>
-          {isActive && !collapsed && (
+          {!collapsed && badge > 0 && (
+            <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-red-500/90 text-white text-[10px] font-bold flex items-center justify-center relative z-10">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+          {isActive && !collapsed && badge === 0 && (
             <motion.div
               layoutId="activeDot"
               className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500 relative z-10"
@@ -100,14 +108,24 @@ function NavItem({ item, collapsed }) {
 
 export default function Sidebar() {
   const { collapsed, toggle, mobileOpen, closeMobile } = useSidebar()
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
 
-  const handleLogout = () => {
-    logout()
-    toast.success('Logged out successfully')
-    navigate('/login')
-  }
+  // Overdue + due-today follow-ups drive the sidebar badge (shares cache with the Follow Ups page).
+  const { data: followupsData } = useQuery({
+    queryKey: ['followups', 'pending'],
+    queryFn: () => api.get('/followups'),
+    staleTime: 60_000,
+  })
+  const dueCount = (followupsData?.data || []).filter(a => {
+    if (!a.scheduled_at) return false
+    const t = new Date(a.scheduled_at)
+    const startTarget = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
+    const now = new Date()
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    return startTarget <= startToday
+  }).length
+
+  const badgeFor = (path) => (path === '/followups' ? dueCount : 0)
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -150,40 +168,11 @@ export default function Sidebar() {
             </AnimatePresence>
             <div className="space-y-0.5">
               {section.items.map(item => (
-                <NavItem key={item.path} item={item} collapsed={collapsed} />
+                <NavItem key={item.path} item={item} collapsed={collapsed} badge={badgeFor(item.path)} />
               ))}
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Bottom */}
-      <div className="px-3 py-3 border-t border-app space-y-0.5">
-        {BOTTOM_ITEMS.map(item => (
-          <NavItem key={item.path} item={item} collapsed={collapsed} />
-        ))}
-        <button
-          onClick={handleLogout}
-          className={cn(
-            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
-            'text-muted hover:text-red-400 hover:bg-red-500/8',
-            collapsed && 'justify-center'
-          )}
-        >
-          <LogOut style={{ width: 18, height: 18 }} className="flex-shrink-0" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                className="text-sm font-medium whitespace-nowrap overflow-hidden"
-              >
-                Logout
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
       </div>
 
       {/* User */}

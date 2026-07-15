@@ -4,15 +4,17 @@ export const LEAD_SOURCES = ['Website', 'Referral', 'LinkedIn', 'Cold Call', 'Em
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent']
 export const TASK_STATUSES = ['todo', 'in_progress', 'completed', 'overdue']
 
+// Stage ids must match the backend Lead.status enum
+// ('new','contacted','qualified','proposal','negotiation','won','lost','on_hold')
 export const PIPELINE_STAGES = [
   { id: 'new', label: 'New', color: '#3B82F6' },
   { id: 'contacted', label: 'Contacted', color: '#8B5CF6' },
-  { id: 'interested', label: 'Interested', color: '#F59E0B' },
-  { id: 'meeting', label: 'Meeting', color: '#F97316' },
+  { id: 'qualified', label: 'Qualified', color: '#F59E0B' },
   { id: 'proposal', label: 'Proposal Sent', color: '#06B6D4' },
   { id: 'negotiation', label: 'Negotiation', color: '#EC4899' },
   { id: 'won', label: 'Won', color: '#10B981' },
   { id: 'lost', label: 'Lost', color: '#EF4444' },
+  { id: 'on_hold', label: 'On Hold', color: '#6B7280' },
 ]
 
 export const MOCK_LEADS = [

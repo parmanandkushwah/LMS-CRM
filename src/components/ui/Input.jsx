@@ -21,7 +21,7 @@ const Input = forwardRef(({
   return (
     <div className={cn('flex flex-col gap-1.5', containerClassName)}>
       {label && (
-        <label className="text-sm font-medium text-body">
+        <label className="text-xs font-medium text-muted uppercase tracking-wide">
           {label}
         </label>
       )}

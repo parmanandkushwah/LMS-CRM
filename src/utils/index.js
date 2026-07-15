@@ -16,12 +16,24 @@ export function formatNumber(num) {
 }
 
 export function formatDate(date, options = {}) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', ...options }).format(new Date(date))
+  if (!date) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', ...options }).format(d)
+}
+
+export function formatTime(date) {
+  if (!date) return ''
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d)
 }
 
 export function formatRelativeTime(date) {
-  const now = new Date()
+  if (!date) return ''
   const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
   const diff = now - d
   const mins = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)

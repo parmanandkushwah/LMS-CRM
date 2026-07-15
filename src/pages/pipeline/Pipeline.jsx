@@ -1,11 +1,28 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, MoreHorizontal, Phone, Mail, DollarSign, User } from 'lucide-react'
-import { Card, Avatar, Badge } from '../../components/ui'
+import { Plus, Phone, Mail, User } from 'lucide-react'
+import { Card, Avatar } from '../../components/ui'
 import Button from '../../components/ui/Button'
-import { PIPELINE_STAGES, MOCK_LEADS } from '../../constants'
-import { cn, formatCurrency, STATUS_COLORS } from '../../utils'
+import { PIPELINE_STAGES } from '../../constants'
+import { cn } from '../../utils'
+import api from '../../services/api'
 import toast from 'react-hot-toast'
+
+const formatINR = (amount) => `Rs ${new Intl.NumberFormat('en-IN').format(Number(amount) || 0)}`
+
+function mapLead(l) {
+  return {
+    id: l.id,
+    name: l.contact_name || l.title,
+    company: l.company_name || '',
+    priority: l.priority,
+    budget: Number(l.estimated_value) || 0,
+    assignedTo: l.assignee?.name || 'Unassigned',
+    status: l.status,
+    avatar: l.avatar,
+  }
+}
 
 function LeadCard({ lead, onDragStart }) {
   const priorityColors = { low: 'bg-gray-400', medium: 'bg-yellow-400', high: 'bg-orange-400', urgent: 'bg-red-400' }
@@ -31,7 +48,7 @@ function LeadCard({ lead, onDragStart }) {
         <div className={cn('w-2 h-2 rounded-full mt-1 flex-shrink-0', priorityColors[lead.priority])} />
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-primary-500">{formatCurrency(lead.budget)}</span>
+        <span className="text-xs font-bold text-primary-500">{formatINR(lead.budget)}</span>
         <div className="flex items-center gap-1">
           <button className="w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center text-muted hover:text-heading transition-colors">
             <Phone className="w-3 h-3" />
@@ -50,7 +67,7 @@ function LeadCard({ lead, onDragStart }) {
 }
 
 function KanbanColumn({ stage, leads, onDrop, onDragOver, onDragLeave, isDragOver }) {
-  const total = leads.reduce((sum, l) => sum + l.budget, 0)
+  const total = leads.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
   return (
     <div
       onDrop={(e) => onDrop(e, stage.id)}
@@ -69,7 +86,7 @@ function KanbanColumn({ stage, leads, onDrop, onDragOver, onDragLeave, isDragOve
           <span className="text-xs bg-white/10 text-muted px-1.5 py-0.5 rounded-md">{leads.length}</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-xs font-semibold text-primary-500">{formatCurrency(total)}</span>
+          <span className="text-xs font-semibold text-primary-500">{formatINR(total)}</span>
           <Button variant="ghost" size="icon-sm">
             <Plus className="w-3.5 h-3.5" />
           </Button>
@@ -104,31 +121,59 @@ function KanbanColumn({ stage, leads, onDrop, onDragOver, onDragLeave, isDragOve
 }
 
 export default function Pipeline() {
-  const [leads, setLeads] = useState(MOCK_LEADS)
+  const queryClient = useQueryClient()
+  const [leads, setLeads] = useState([])
   const [dragOverStage, setDragOverStage] = useState(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['pipeline-leads'],
+    queryFn: () => api.get('/leads', { params: { limit: 1000 } }),
+  })
+
+  useEffect(() => {
+    if (data?.data) setLeads(data.data.map(mapLead))
+  }, [data])
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }) => api.patch(`/leads/${id}/status`, { status }),
+    onMutate: ({ id, status }) => {
+      const prevLeads = leads
+      setLeads(prev => prev.map(l => String(l.id) === String(id) ? { ...l, status } : l))
+      return { prevLeads }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] }),
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prevLeads) setLeads(ctx.prevLeads)
+      toast.error(err?.message || 'Failed to move lead')
+    },
+  })
 
   const handleDrop = (e, toStage) => {
     e.preventDefault()
     const leadId = e.dataTransfer.getData('leadId')
     const fromStage = e.dataTransfer.getData('fromStage')
-    if (fromStage === toStage) { setDragOverStage(null); return }
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: toStage } : l))
     setDragOverStage(null)
+    if (!leadId || fromStage === toStage) return
+    statusMutation.mutate({ id: leadId, status: toStage })
     toast.success(`Lead moved to ${PIPELINE_STAGES.find(s => s.id === toStage)?.label}`)
   }
 
-  const totalRevenue = leads.filter(l => l.status === 'won').reduce((sum, l) => sum + l.budget, 0)
-  const totalPipeline = leads.filter(l => !['won', 'lost'].includes(l.status)).reduce((sum, l) => sum + l.budget, 0)
+  const totalRevenue = leads.filter(l => l.status === 'won').reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+  const totalPipeline = leads.filter(l => !['won', 'lost'].includes(l.status)).reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+  const wonCount = leads.filter(l => l.status === 'won').length
+  const winRate = leads.length ? Math.round((wonCount / leads.length) * 100) : 0
 
   return (
     <div className="space-y-5">
+      {isLoading && <p className="text-sm text-muted">Loading pipeline…</p>}
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Total Leads', value: leads.length, color: 'text-brand-blue' },
-          { label: 'Pipeline Value', value: formatCurrency(totalPipeline), color: 'text-brand-purple' },
-          { label: 'Won Revenue', value: formatCurrency(totalRevenue), color: 'text-primary-500' },
-          { label: 'Win Rate', value: `${Math.round((leads.filter(l => l.status === 'won').length / leads.length) * 100)}%`, color: 'text-yellow-400' },
+          { label: 'Pipeline Value', value: formatINR(totalPipeline), color: 'text-brand-purple' },
+          { label: 'Won Revenue', value: formatINR(totalRevenue), color: 'text-primary-500' },
+          { label: 'Win Rate', value: `${winRate}%`, color: 'text-yellow-400' },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
             <Card className="text-center py-4">

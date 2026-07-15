@@ -3,24 +3,23 @@ import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Zap, Building2, User, Mail, Phone, Lock, ArrowRight } from 'lucide-react'
+import { Zap, User, Mail, Phone, Lock, ArrowRight } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 const schema = z.object({
-  company: z.string().min(2, 'Company name required'),
   name: z.string().min(2, 'Your name is required'),
   email: z.string().email('Invalid email'),
-  phone: z.string().min(7, 'Invalid phone'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  phone: z.string().min(7, 'Invalid phone').optional().or(z.literal('')),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, { message: "Passwords don't match", path: ['confirmPassword'] })
 
 function PasswordStrength({ password = '' }) {
   const checks = [
-    { label: '8+ characters', pass: password.length >= 8 },
+    { label: '6+ characters', pass: password.length >= 6 },
     { label: 'Uppercase', pass: /[A-Z]/.test(password) },
     { label: 'Number', pass: /\d/.test(password) },
     { label: 'Special char', pass: /[^A-Za-z0-9]/.test(password) },
@@ -52,16 +51,22 @@ export default function Register() {
   const { register: authRegister } = useAuth()
 
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(schema)
+    resolver: zodResolver(schema),
   })
 
   const password = watch('password', '')
 
   const onSubmit = async (data) => {
     try {
-      await authRegister({ name: data.name, email: data.email, company: data.company })
-      toast.success('Account created! Welcome to LeadFlow!')
-      navigate('/dashboard')
+      await authRegister({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        phone: data.phone || undefined,
+        role: 'agent',
+      })
+      toast.success('Account created successfully!')
+      navigate('/login')
     } catch (err) {
       toast.error(err.message)
     }
@@ -86,12 +91,11 @@ export default function Register() {
         <div className="glass rounded-3xl p-8 border border-app shadow-card-dark">
           <div className="text-center mb-7">
             <h2 className="text-2xl font-bold text-heading">Create your account</h2>
-            <p className="text-sm text-muted mt-1">Start your 14-day free trial</p>
+            <p className="text-sm text-muted mt-1">Fill in your details to get started</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Input label="Company Name" icon={Building2} placeholder="Acme Corp" error={errors.company?.message} {...register('company')} />
-            <Input label="Your Full Name" icon={User} placeholder="John Doe" error={errors.name?.message} {...register('name')} />
+            <Input label="Full Name" icon={User} placeholder="John Doe" error={errors.name?.message} {...register('name')} />
             <div className="grid grid-cols-2 gap-3">
               <Input label="Email" icon={Mail} type="email" placeholder="you@company.com" error={errors.email?.message} {...register('email')} />
               <Input label="Phone" icon={Phone} placeholder="+1 555-0100" error={errors.phone?.message} {...register('phone')} />

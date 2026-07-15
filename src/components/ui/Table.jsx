@@ -50,8 +50,8 @@ export default function Table({
           />
         </div>
       )}
-      <div className="overflow-x-auto rounded-2xl border border-app">
-        <table className="w-full">
+      <div className="rounded-2xl border border-app">
+        <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-app">
               {onSelectAll && (
@@ -114,7 +114,7 @@ export default function Table({
                       </td>
                     )}
                     {columns.map(col => (
-                      <td key={col.key} className={cn('px-4 py-3 text-sm', col.cellClassName)}>
+                      <td key={col.key} className={cn('px-4 py-3 text-sm min-w-0', col.cellClassName)}>
                         {col.render ? col.render(row[col.key], row) : (
                           <span className="text-body">{row[col.key] ?? '—'}</span>
                         )}

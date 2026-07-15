@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Bell, Sun, Moon, Monitor, Plus, Menu,
-  ChevronDown, Settings, User, LogOut, Command, X,
+  ChevronDown, Settings, User, LogOut, Command, X, CreditCard,
   Users, CheckSquare, Building2, UserCheck
 } from 'lucide-react'
 import { cn, formatRelativeTime } from '../utils'
@@ -47,7 +47,7 @@ function ThemeToggle() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-11 w-36 glass rounded-xl border border-app shadow-card-dark z-20 p-1"
+              className="absolute right-0 top-11 w-36 bg-sidebar rounded-xl border border-app shadow-card-dark z-20 p-1"
             >
               {options.map(opt => (
                 <button
@@ -91,7 +91,7 @@ function NotificationBell() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-11 w-80 glass rounded-2xl border border-app shadow-card-dark z-20 overflow-hidden"
+              className="absolute right-0 top-11 w-80 bg-sidebar rounded-2xl border border-app shadow-card-dark z-20 overflow-hidden"
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-app">
                 <h4 className="text-sm font-semibold text-heading">Notifications</h4>
@@ -152,7 +152,7 @@ function ProfileMenu() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-12 w-48 glass rounded-xl border border-app shadow-card-dark z-20 p-1"
+              className="absolute right-0 top-12 w-48 bg-sidebar rounded-xl border border-app shadow-card-dark z-20 p-1"
             >
               <div className="px-3 py-2 border-b border-app mb-1">
                 <p className="text-xs font-semibold text-heading">{user?.name}</p>
@@ -161,6 +161,7 @@ function ProfileMenu() {
               {[
                 { label: 'Profile', icon: User, path: '/profile' },
                 { label: 'Settings', icon: Settings, path: '/settings' },
+                { label: 'Subscription', icon: CreditCard, path: '/subscription' },
               ].map(item => (
                 <button key={item.path} onClick={() => { navigate(item.path); setOpen(false) }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-body hover:text-heading hover:bg-white/8 transition-colors">
