@@ -26,7 +26,7 @@ export function formatTime(date) {
   if (!date) return ''
   const d = new Date(date)
   if (isNaN(d.getTime())) return ''
-  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d)
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: undefined }).format(d)
 }
 
 export function formatRelativeTime(date) {

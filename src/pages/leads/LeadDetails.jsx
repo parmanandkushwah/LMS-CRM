@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useIsMutating } from '@tanstack/react-query'
 import {
   ArrowLeft, Phone, Mail, Building2, Calendar, DollarSign,
   Edit, Plus, User, Activity, MapPin, Globe, Tag,
@@ -75,9 +75,11 @@ function LeadSkeleton() {
 function StatusBar({ leadId, currentStatus, onUpdate }) {
   const queryClient = useQueryClient()
   const mutation = useMutation({
+    mutationKey: ['lead-status', leadId],
     mutationFn: (status) => api.patch(`/leads/${leadId}/status`, { status }),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+      await queryClient.refetchQueries({ queryKey: ['lead', leadId], exact: true })
       toast.success('Status updated')
       onUpdate?.(res.data)
     },
@@ -106,7 +108,11 @@ function StatusBar({ leadId, currentStatus, onUpdate }) {
                 'bg-white/5 text-muted hover:bg-white/10 hover:text-body'
               )}
             >
-              {stage.replace('_', ' ')}
+              {mutation.isPending && isCurrent ? (
+                <span className="inline-flex items-center gap-1"><span className="animate-spin rounded-full border-2 border-current border-t-transparent w-3 h-3" />{stage.replace('_', ' ')}</span>
+              ) : (
+                stage.replace('_', ' ')
+              )}
             </button>
             {i < PIPELINE_STAGES.length - 1 && (
               <div className={cn('w-3 h-px', isActive && stageIdx < currentIdx ? 'bg-primary-500/50' : 'bg-white/10')} />
@@ -341,20 +347,34 @@ function TasksTab({ leadId }) {
   const [scheduledAt, setScheduledAt] = useState('')
   const [description, setDescription] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const invalidateLeadDetail = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['lead', leadId] }),
+      queryClient.refetchQueries({ queryKey: ['lead', leadId], exact: true }),
+      queryClient.invalidateQueries({ queryKey: ['lead-tasks', leadId] }),
+      queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] }),
+      queryClient.refetchQueries({ queryKey: ['lead-tasks', leadId], exact: true }),
+    ])
+  }
+
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['lead-tasks', leadId],
     queryFn: () => api.get(`/leads/${leadId}/activities`, { params: { type: 'task', limit: 100 } }),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
-  const tasks = data?.data || []
-  const pending = tasks.filter(t => t.outcome === 'pending')
-  const completed = tasks.filter(t => t.outcome === 'completed')
+  const rawTaskPayload = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+  const tasks = rawTaskPayload
+  const pending = tasks.filter(t => (t.outcome || 'pending') === 'pending')
+  const completed = tasks.filter(t => (t.outcome || 'completed') === 'completed')
 
   const addMutation = useMutation({
+    mutationKey: ['lead-detail-task-add', leadId],
     mutationFn: (payload) => api.post(`/leads/${leadId}/activities`, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-tasks', leadId] })
-      queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+    onSuccess: async () => {
+      await invalidateLeadDetail()
       toast.success('Task added')
       setTitle(''); setScheduledAt(''); setDescription(''); setShowForm(false)
     },
@@ -362,11 +382,21 @@ function TasksTab({ leadId }) {
   })
 
   const completeMutation = useMutation({
+    mutationKey: ['lead-detail-task-complete', leadId],
     mutationFn: (id) => api.put(`/leads/activities/${id}`, { outcome: 'completed', completed_at: new Date() }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-tasks', leadId] })
-      queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+    onSuccess: async () => {
+      await invalidateLeadDetail()
       toast.success('Task completed')
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const deleteMutation = useMutation({
+    mutationKey: ['lead-detail-task-delete', leadId],
+    mutationFn: (id) => api.delete(`/leads/activities/${id}`),
+    onSuccess: async () => {
+      await invalidateLeadDetail()
+      toast.success('Task deleted')
     },
     onError: (err) => toast.error(err.message),
   })
@@ -426,15 +456,26 @@ function TasksTab({ leadId }) {
           )}
         </div>
       </div>
-      {task.outcome === 'pending' && (
+      <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+        {task.outcome === 'pending' && (
+          <button
+            onClick={() => completeMutation.mutate(task.id)}
+            disabled={completeMutation.isPending}
+            className="text-xs text-primary-400 hover:text-primary-300"
+          >
+            Done
+          </button>
+        )}
         <button
-          onClick={() => completeMutation.mutate(task.id)}
-          disabled={completeMutation.isPending}
-          className="text-xs text-primary-400 hover:text-primary-300 flex-shrink-0 mt-0.5"
+          onClick={() => {
+            if (window.confirm('Delete this task?')) deleteMutation.mutate(task.id)
+          }}
+          disabled={deleteMutation.isPending}
+          className="text-xs text-muted hover:text-red-400 disabled:opacity-50"
         >
-          Done
+          Delete
         </button>
-      )}
+      </div>
     </div>
   )
 
@@ -444,11 +485,16 @@ function TasksTab({ leadId }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-heading">Tasks</span>
+          {(addMutation.isPending || completeMutation.isPending || deleteMutation.isPending) && (
+            <span className="inline-flex items-center gap-1 text-xs text-primary-400">
+              <span className="animate-spin rounded-full border-2 border-current border-t-transparent w-3 h-3" /> saving
+            </span>
+          )}
           {pending.length > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-md bg-yellow-500/10 text-yellow-400">{pending.length} pending</span>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)}>
+        <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)} disabled={addMutation.isPending}>
           {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
           {showForm ? 'Cancel' : 'Add Task'}
         </Button>
@@ -489,7 +535,7 @@ function TasksTab({ leadId }) {
         </div>
       )}
 
-      {isLoading ? (
+      {(isLoading || isFetching) ? (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => <div key={i} className="h-12 shimmer-bg rounded-xl" />)}
         </div>
@@ -523,7 +569,6 @@ function TasksTab({ leadId }) {
 // ─── Notes Tab ────────────────────────────────────────────────────────────────
 function NotesTab({ leadId }) {
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
   const [content, setContent] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -533,13 +578,18 @@ function NotesTab({ leadId }) {
 
   const notes = data?.data || []
 
+  const invalidateLeadDetail = () => {
+    queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-notes', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+  }
+
   const addMutation = useMutation({
     mutationFn: (payload) => api.post(`/leads/${leadId}/activities`, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-notes', leadId] })
-      queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+      invalidateLeadDetail()
       toast.success('Note added')
-      setContent(''); setShowForm(false)
+      setContent('')
     },
     onError: (err) => toast.error(err.message),
   })
@@ -547,8 +597,7 @@ function NotesTab({ leadId }) {
   const deleteMutation = useMutation({
     mutationFn: (noteId) => api.delete(`/leads/activities/${noteId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-notes', leadId] })
-      queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+      invalidateLeadDetail()
       toast.success('Note deleted')
     },
     onError: (err) => toast.error(err.message),
@@ -569,31 +618,7 @@ function NotesTab({ leadId }) {
             <span className="text-xs px-1.5 py-0.5 rounded-md bg-primary-500/10 text-primary-400">{notes.length}</span>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)}>
-          {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-          {showForm ? 'Cancel' : 'Add Note'}
-        </Button>
       </div>
-
-      {/* Add form */}
-      {showForm && (
-        <div className="p-4 rounded-xl border border-app bg-white/3 space-y-3">
-          <textarea
-            autoFocus
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAdd() }}
-            placeholder="Write a note…"
-            rows={3}
-            className="w-full bg-transparent text-sm text-body placeholder:text-muted outline-none resize-none"
-          />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={handleAdd} disabled={addMutation.isPending}>
-              {addMutation.isPending ? 'Saving…' : 'Save Note'}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -605,31 +630,56 @@ function NotesTab({ leadId }) {
           <p className="text-sm text-muted">No notes yet</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {notes.map(note => (
-            <div key={note.id} className="group p-3.5 rounded-xl border border-app bg-white/3">
-              <p className="text-sm text-body leading-relaxed whitespace-pre-wrap">{note.title}</p>
-              <div className="flex items-center justify-between mt-2.5">
-                <div className="flex items-center gap-1.5 text-xs text-muted">
-                  {note.user && <Avatar name={note.user.name} size="xs" />}
-                  {note.user?.name && <span>{note.user.name}</span>}
-                  <span className="text-white/20">·</span>
-                  <span>{formatDate(note.createdAt || note.created_at)}</span>
-                  <span className="text-white/20">·</span>
-                  <span>{formatTime(note.createdAt || note.created_at)}</span>
+            <div key={note.id} className="flex">
+              <div className="group max-w-[92%] w-full p-3 rounded-2xl border border-app bg-white/5 shadow-sm">
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted">
+                    {note.user && <Avatar name={note.user.name} size="xs" />}
+                    {note.user?.name && <span className="font-medium text-heading">{note.user.name}</span>}
+                    <span className="text-white/20">·</span>
+                    <span>{formatDate(note.createdAt || note.created_at)}</span>
+                    <span className="text-white/20">·</span>
+                    <span>{formatTime(note.createdAt || note.created_at)}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Delete this note?')) deleteMutation.mutate(note.id)
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="opacity-70 hover:text-red-400 text-[11px] text-muted transition-opacity disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
                 </div>
-                <button
-                  onClick={() => deleteMutation.mutate(note.id)}
-                  disabled={deleteMutation.isPending}
-                  className="opacity-0 group-hover:opacity-100 text-xs text-muted hover:text-red-400 transition-opacity disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                <p className="text-sm text-body leading-relaxed whitespace-pre-wrap">{note.title}</p>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Always-open comments box below existing notes */}
+      <div className="p-4 rounded-xl border border-app bg-white/3 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">Drop a note</span>
+          <span className="text-[11px] text-muted">{notes.length}</span>
+        </div>
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAdd() }}
+          placeholder="Write a note…"
+          rows={3}
+          className="w-full bg-transparent text-sm text-body placeholder:text-muted outline-none resize-none"
+        />
+        <div className="flex justify-end">
+          <Button size="sm" onClick={handleAdd} disabled={addMutation.isPending}>
+            {addMutation.isPending ? 'Saving…' : 'Drop Note'}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -646,6 +696,12 @@ function FilesTab({ leadId }) {
 
   const files = data?.data || []
 
+  const invalidateLeadDetail = () => {
+    queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-files', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+  }
+
   const uploadMutation = useMutation({
     mutationFn: (file) => {
       const form = new FormData()
@@ -653,7 +709,7 @@ function FilesTab({ leadId }) {
       return api.post(`/leads/${leadId}/files`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-files', leadId] })
+      invalidateLeadDetail()
       toast.success('File uploaded')
     },
     onError: (err) => toast.error(err.message),
@@ -662,7 +718,7 @@ function FilesTab({ leadId }) {
   const deleteMutation = useMutation({
     mutationFn: (fileId) => api.delete(`/leads/files/${fileId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-files', leadId] })
+      invalidateLeadDetail()
       toast.success('File deleted')
     },
     onError: (err) => toast.error(err.message),
@@ -745,7 +801,9 @@ function FilesTab({ leadId }) {
                   <Download className="w-3 h-3" /> Download
                 </button>
                 <button
-                  onClick={() => deleteMutation.mutate(file.id)}
+                  onClick={() => {
+                    if (window.confirm('Delete this file?')) deleteMutation.mutate(file.id)
+                  }}
                   disabled={deleteMutation.isPending}
                   className="text-xs text-muted hover:text-red-400 px-2 py-1 disabled:opacity-50"
                 >
@@ -789,10 +847,16 @@ function ContactsTab({ leadId }) {
         contactLog[cid] = a
     })
 
+  const invalidateLeadDetail = () => {
+    queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-contacts', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+  }
+
   const addMutation = useMutation({
     mutationFn: (payload) => api.post(`/leads/${leadId}/contacts`, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-contacts', leadId] })
+      invalidateLeadDetail()
       toast.success('Contact added')
       setName(''); setEmail(''); setPhone(''); setDesignation(''); setShowForm(false)
     },
@@ -802,7 +866,7 @@ function ContactsTab({ leadId }) {
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/leads/contacts/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-contacts', leadId] })
+      invalidateLeadDetail()
       toast.success('Contact deleted')
     },
     onError: (err) => toast.error(err.message),
@@ -815,7 +879,7 @@ function ContactsTab({ leadId }) {
       metadata: { contact_id: contact.id, contact_name: contact.name },
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+      invalidateLeadDetail()
       toast.success('Contact logged')
     },
     onError: (err) => toast.error(err.message),
@@ -962,7 +1026,9 @@ function ContactsTab({ leadId }) {
                       </button>
                     </div>
                     <button
-                      onClick={() => deleteMutation.mutate(contact.id)}
+                      onClick={() => {
+                        if (window.confirm('Delete this contact?')) deleteMutation.mutate(contact.id)
+                      }}
                       disabled={deleteMutation.isPending}
                       className="text-xs text-muted hover:text-red-400 transition-opacity disabled:opacity-50"
                     >
@@ -986,6 +1052,8 @@ export default function LeadDetails() {
   const [activeTab, setActiveTab] = useState('Overview')
   const [showEdit, setShowEdit] = useState(false)
   const queryClient = useQueryClient()
+
+  const isMutating = useIsMutating()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['lead', id],
@@ -1025,6 +1093,15 @@ export default function LeadDetails() {
 
   return (
     <div className="space-y-5 max-w-6xl">
+      {isMutating > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary-500/50 bg-app px-4 py-2 text-xs font-semibold text-primary-400 shadow-lg backdrop-blur">
+            <span className="animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4" />
+            Updating lead…
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon-sm" onClick={() => navigate('/leads')}>

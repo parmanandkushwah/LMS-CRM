@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Calendar, Clock, Plus, CheckCircle, AlertCircle, User, ChevronDown, Check,
-  Search, MoreVertical, Pencil, Trash2, CalendarClock, RotateCcw, Phone, Mail, Repeat
+  Search, MoreVertical, Pencil, Trash2, RotateCcw, Phone, Mail, Repeat
 } from 'lucide-react'
 import { Card, Avatar } from '../../components/ui'
 import Button from '../../components/ui/Button'
@@ -51,16 +51,6 @@ function startOfDay(d) {
   return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
 }
 
-// Snooze relative to today (avoids piling up more overdue), keeping the original time-of-day.
-function snoozeDate(base, days) {
-  const src = base ? new Date(base) : new Date()
-  const now = new Date()
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  d.setDate(d.getDate() + days)
-  d.setHours(src.getHours() || 9, src.getMinutes() || 0, 0, 0)
-  return d
-}
-
 function toLocalInput(date) {
   if (!date) return ''
   const d = new Date(date)
@@ -77,7 +67,7 @@ function nextRecurrenceDate(base, recurrence) {
     case 'weekly': d.setDate(d.getDate() + 7); break
     case 'biweekly': d.setDate(d.getDate() + 14); break
     case 'monthly': d.setMonth(d.getMonth() + 1); break
-    default: return null
+    default: return base ? new Date(base) : new Date()
   }
   return d
 }
@@ -249,11 +239,11 @@ function Dropdown({ options, value, onChange, placeholder = 'Select', className 
   )
 }
 
-function FollowUpCard({ followup, onDone, onCompleteNext, onReopen, onSnooze, onEdit, onDelete, busy }) {
+function FollowUpCard({ followup, onDone, onCompleteNext, onReopen, onEdit, onDelete, busy }) {
   const config = STATUS_CONFIG[followup.status]
   const StatusIcon = config.icon
   const isCompleted = followup.outcome === 'completed'
-  const isRecurring = followup.recurrence && followup.recurrence !== 'none'
+  const showCompleteNext = !isCompleted && followup.status === 'today'
 
   const menuItems = isCompleted
     ? [
@@ -261,10 +251,7 @@ function FollowUpCard({ followup, onDone, onCompleteNext, onReopen, onSnooze, on
         { label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true, onClick: () => onDelete(followup) },
       ]
     : [
-        { label: 'Complete & schedule next', icon: <CheckCircle className="w-3.5 h-3.5" />, onClick: () => onCompleteNext(followup) },
-        { label: 'Snooze to tomorrow', icon: <CalendarClock className="w-3.5 h-3.5" />, onClick: () => onSnooze(followup, 1) },
-        { label: 'Snooze 3 days', icon: <CalendarClock className="w-3.5 h-3.5" />, onClick: () => onSnooze(followup, 3) },
-        { label: 'Snooze next week', icon: <CalendarClock className="w-3.5 h-3.5" />, onClick: () => onSnooze(followup, 7) },
+        ...(showCompleteNext ? [{ label: 'Complete & schedule next', icon: <CheckCircle className="w-3.5 h-3.5" />, onClick: () => onCompleteNext(followup) }] : []),
         { label: 'Edit', icon: <Pencil className="w-3.5 h-3.5" />, onClick: () => onEdit(followup) },
         { label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true, onClick: () => onDelete(followup) },
       ]
@@ -287,7 +274,7 @@ function FollowUpCard({ followup, onDone, onCompleteNext, onReopen, onSnooze, on
           </div>
         </Link>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {isRecurring && (
+          {(followup.recurrence && followup.recurrence !== 'none') && (
             <span title={`Repeats: ${RECURRENCE_LABELS[followup.recurrence] || followup.recurrence}`} className="w-5 h-5 rounded-md bg-white/8 flex items-center justify-center text-muted">
               <Repeat className="w-3 h-3" />
             </span>
@@ -535,18 +522,13 @@ export default function FollowUps() {
     onSuccess: () => { invalidate(); toast.success('Follow-up reopened') },
     onError: (err) => toast.error(err.message),
   })
-  const snoozeMutation = useMutation({
-    mutationFn: ({ f, days }) => api.put(`/leads/activities/${f.id}`, { scheduled_at: snoozeDate(f.scheduledAtRaw, days) }),
-    onSuccess: () => { invalidate(); toast.success('Follow-up rescheduled') },
-    onError: (err) => toast.error(err.message),
-  })
   const deleteMutation = useMutation({
     mutationFn: (f) => api.delete(`/leads/activities/${f.id}`),
     onSuccess: () => { invalidate(); toast.success('Follow-up deleted') },
     onError: (err) => toast.error(err.message),
   })
 
-  const busy = completeMutation.isPending || reopenMutation.isPending || snoozeMutation.isPending || deleteMutation.isPending
+  const busy = completeMutation.isPending || reopenMutation.isPending || deleteMutation.isPending
 
   // Complete now, then open the modal prefilled to schedule the next one.
   const handleCompleteNext = (f) => {
@@ -559,7 +541,7 @@ export default function FollowUps() {
         type: f.typeKey,
         notes: f.notes,
         recurrence: f.recurrence,
-        scheduledAt: toLocalInput(nextRecurrenceDate(f.scheduledAtRaw, 'weekly')),
+        scheduledAt: toLocalInput(nextRecurrenceDate(f.scheduledAtRaw, f.recurrence || 'none')),
       },
     })
   }
@@ -568,7 +550,6 @@ export default function FollowUps() {
     onDone: (f) => completeMutation.mutate({ f, autoNext: true }),
     onCompleteNext: handleCompleteNext,
     onReopen: reopenMutation.mutate,
-    onSnooze: (f, days) => snoozeMutation.mutate({ f, days }),
     onEdit: (f) => setModal({ open: true, followup: f, prefill: null }),
     onDelete: (f) => { if (window.confirm('Delete this follow-up?')) deleteMutation.mutate(f) },
     busy,

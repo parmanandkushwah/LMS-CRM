@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useIsMutating } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
@@ -28,9 +28,25 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 5 * 60 * 1000 } }
 })
 
+function GlobalActionLoader() {
+  const isMutating = useIsMutating()
+
+  if (!isMutating) return null
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/35 backdrop-blur-[2px] pointer-events-none">
+      <div className="flex items-center gap-3 rounded-full border border-primary-500/40 bg-app px-4 py-2 text-xs font-semibold text-primary-400 shadow-xl">
+        <span className="animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4" />
+        <span>Working…</span>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <GlobalActionLoader />
       <ThemeProvider>
         <AuthProvider>
           <BrowserRouter>
