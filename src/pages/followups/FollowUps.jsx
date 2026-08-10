@@ -59,6 +59,26 @@ function toLocalInput(date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function parseDateTimeLocal(value) {
+  if (!value || typeof value !== 'string') return null
+  const [datePart, timePart] = value.split('T')
+  if (!datePart || !timePart) return null
+
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+
+  if ([year, month, day, hour, minute].some(n => Number.isNaN(n))) return null
+
+  return new Date(year, month - 1, day, hour, minute, 0, 0)
+}
+
+function toUtcISOString(value) {
+  if (!value) return ''
+  const d = parseDateTimeLocal(value)
+  if (!d || isNaN(d.getTime())) return value
+  return d.toISOString()
+}
+
 // Next occurrence for a recurring follow-up, based on its scheduled date.
 function nextRecurrenceDate(base, recurrence) {
   const d = base ? new Date(base) : new Date()
@@ -385,14 +405,14 @@ function FollowUpModal({ open, onClose, followup, prefill }) {
       ? api.put(`/leads/activities/${followup.id}`, {
           type: payload.type,
           description: payload.notes || null,
-          scheduled_at: payload.scheduledAt,
+          scheduled_at: toUtcISOString(payload.scheduledAt),
           metadata: { ...(followup.metadataRaw || {}), recurrence: payload.recurrence },
         })
       : api.post(`/leads/${payload.leadId}/activities`, {
           type: payload.type,
           title: `${TYPE_LABELS[payload.type]} follow-up`,
           description: payload.notes || undefined,
-          scheduled_at: payload.scheduledAt,
+          scheduled_at: toUtcISOString(payload.scheduledAt),
           outcome: 'pending',
           metadata: { recurrence: payload.recurrence },
         }),
