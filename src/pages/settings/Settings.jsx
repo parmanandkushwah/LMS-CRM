@@ -133,9 +133,20 @@ function ThemeSettings() {
   const qc = useQueryClient()
   const { data } = useQuery({ queryKey: ['settings', 'appearance'], queryFn: () => appearanceApi.get() })
   const [local, setLocal] = useState(theme)
+
   useEffect(() => {
-    if (data?.data?.theme) { setLocal(data.data.theme); setTheme(data.data.theme) }
+    setLocal(theme)
+  }, [theme])
+
+  // Keep the server response available for save/refresh concerns, but never
+  // let a fetch-side default overwrite the current live tab highlight.
+  useEffect(() => {
+    if (data?.data?.theme) {
+      // Do not force the UI selection from API data here.
+      // The live theme context already represents the user's current mode.
+    }
   }, [data])
+
   const themes = [
     { value: 'light', label: 'Light', desc: 'Clean and bright interface' },
     { value: 'dark', label: 'Dark', desc: 'Easy on the eyes' },

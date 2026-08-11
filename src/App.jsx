@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './routes/ProtectedRoute'
+import RoleGuard from './routes/RoleGuard'
 import AppLayout from './layouts/AppLayout'
 
 // Auth Pages
@@ -69,16 +70,24 @@ export default function App() {
                 <Route path="pipeline" element={<Pipeline />} />
                 <Route path="customers" element={<Customers />} />
                 <Route path="companies" element={<Companies />} />
-                <Route path="employees" element={<Employees />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="followups" element={<FollowUps />} />
                 <Route path="quotations" element={<Quotations />} />
                 <Route path="calendar" element={<Calendar />} />
-                <Route path="reports" element={<Reports />} />
                 <Route path="documents" element={<Documents />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="subscription" element={<Subscription />} />
+                <Route path="employees" element={
+                  <RoleGuard roles={['admin', 'manager']}>
+                    <Employees />
+                  </RoleGuard>
+                } />
+                <Route path="reports" element={
+                  <RoleGuard roles={['admin', 'manager']}>
+                    <Reports />
+                  </RoleGuard>
+                } />
               </Route>
 
               {/* 404 */}

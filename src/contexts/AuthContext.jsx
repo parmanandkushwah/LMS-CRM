@@ -3,25 +3,33 @@ import api from '../services/api'
 
 const AuthContext = createContext(null)
 
+const getStorage = (remember) => (remember ? localStorage : sessionStorage)
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('lf-user')
+    const stored = localStorage.getItem('lf-user') || sessionStorage.getItem('lf-user')
     return stored ? JSON.parse(stored) : null
   })
-  const [loading, setLoading] = useState(!!localStorage.getItem('lf-access-token'))
+  const [loading, setLoading] = useState(() => {
+    return !!localStorage.getItem('lf-access-token') || !!sessionStorage.getItem('lf-access-token')
+  })
 
   useEffect(() => {
-    const token = localStorage.getItem('lf-access-token')
+    const token = localStorage.getItem('lf-access-token') || sessionStorage.getItem('lf-access-token')
     if (token && !user) {
       api.get('/auth/me')
         .then((res) => {
           setUser(res.data)
-          localStorage.setItem('lf-user', JSON.stringify(res.data))
+          const store = localStorage.getItem('lf-access-token') ? localStorage : sessionStorage
+          store.setItem('lf-user', JSON.stringify(res.data))
         })
         .catch(() => {
           localStorage.removeItem('lf-access-token')
           localStorage.removeItem('lf-refresh-token')
           localStorage.removeItem('lf-user')
+          sessionStorage.removeItem('lf-access-token')
+          sessionStorage.removeItem('lf-refresh-token')
+          sessionStorage.removeItem('lf-user')
         })
         .finally(() => setLoading(false))
     } else {
@@ -29,12 +37,13 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = async (email, password) => {
+  const login = async (email, password, remember = true) => {
     const res = await api.post('/auth/login', { email, password })
     const { user: u, accessToken, refreshToken } = res.data
-    localStorage.setItem('lf-access-token', accessToken)
-    localStorage.setItem('lf-refresh-token', refreshToken)
-    localStorage.setItem('lf-user', JSON.stringify(u))
+    const store = getStorage(remember)
+    store.setItem('lf-access-token', accessToken)
+    store.setItem('lf-refresh-token', refreshToken)
+    store.setItem('lf-user', JSON.stringify(u))
     setUser(u)
     return u
   }
@@ -44,6 +53,9 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('lf-access-token')
     localStorage.removeItem('lf-refresh-token')
     localStorage.removeItem('lf-user')
+    sessionStorage.removeItem('lf-access-token')
+    sessionStorage.removeItem('lf-refresh-token')
+    sessionStorage.removeItem('lf-user')
     setUser(null)
   }
 

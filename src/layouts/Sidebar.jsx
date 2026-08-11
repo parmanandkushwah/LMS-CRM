@@ -9,6 +9,7 @@ import {
 import { cn } from '../utils'
 import { useSidebar } from '../contexts/SidebarContext'
 import { useAuth } from '../contexts/AuthContext'
+import { isAdminOrManager } from '../constants/roles'
 import { Avatar } from '../components/ui'
 import api from '../services/api'
 
@@ -110,6 +111,18 @@ export default function Sidebar() {
   const { collapsed, toggle, mobileOpen, closeMobile } = useSidebar()
   const { user } = useAuth()
 
+  const isAgent = !isAdminOrManager(user?.role)
+
+  const filteredSections = NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      if (isAgent && (item.path === '/employees' || item.path === '/reports')) {
+        return false
+      }
+      return true
+    }),
+  })).filter(section => section.items.length > 0)
+
   // Overdue + due-today follow-ups drive the sidebar badge (shares cache with the Follow Ups page).
   const { data: followupsData } = useQuery({
     queryKey: ['followups', 'pending'],
@@ -152,7 +165,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <div className="flex-1 overflow-y-auto scrollbar-thin py-4 px-3 space-y-6">
-        {NAV_SECTIONS.map(section => (
+        {filteredSections.map(section => (
           <div key={section.label}>
             <AnimatePresence>
               {!collapsed && (

@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Users, UserPlus, Mail, Phone, Shield, ToggleLeft, ToggleRight,
-  X, User, Lock, ArrowRight, Search, ChevronDown, Check, Pencil, KeyRound
+  X, User, Lock, ArrowRight, Search, ChevronDown, Check, Pencil, KeyRound, AlertCircle
 } from 'lucide-react'
 import { Card, Avatar, StatCard } from '../../components/ui'
 import Input from '../../components/ui/Input'
@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import { cn, formatNumber } from '../../utils'
+import { isAdminOrManager } from '../../constants/roles'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -426,6 +427,7 @@ export default function Employees() {
   const [roleFilter, setRoleFilter] = useState('')
 
   const canManage = ['admin', 'manager'].includes(currentUser?.role)
+  const isAgent = !isAdminOrManager(currentUser?.role)
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', search, roleFilter],
@@ -448,6 +450,16 @@ export default function Employees() {
     { title: 'Managers', value: users.filter(u => u.role === 'manager').length, icon: UserPlus, iconColor: 'text-brand-blue', iconBg: 'bg-brand-blue/10' },
     { title: 'Agents', value: users.filter(u => u.role === 'agent').length, icon: User, iconColor: 'text-primary-500', iconBg: 'bg-primary-500/10' },
   ]
+
+  if (isAgent) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <AlertCircle className="w-8 h-8 text-red-400 mb-3" />
+        <p className="text-sm text-heading font-medium">Access Denied</p>
+        <p className="text-xs text-muted mt-1">You don't have permission to view team members. Contact your administrator if you think this is a mistake.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

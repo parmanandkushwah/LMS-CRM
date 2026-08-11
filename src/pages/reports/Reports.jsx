@@ -12,6 +12,8 @@ import { formatNumber } from '../../utils'
 import { exportReportsToExcel, exportSheetToExcel } from '../../utils/exportReport'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
+import { useAuth } from '../../contexts/AuthContext'
+import { isAdminOrManager } from '../../constants/roles'
 
 const PIE_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#F97316', '#06B6D4', '#10B981', '#EC4899', '#6366F1']
 const FUNNEL_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#F97316', '#06B6D4', '#10B981', '#EC4899']
@@ -37,6 +39,9 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Reports() {
+  const { user } = useAuth()
+  const isAgent = !isAdminOrManager(user?.role)
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
@@ -51,6 +56,7 @@ export default function Reports() {
         agents: ag.data || [],
       }
     },
+    enabled: !isAgent,
   })
 
   const view = useMemo(() => {
@@ -156,6 +162,16 @@ export default function Reports() {
       console.error(err)
       toast.error('Failed to export table.')
     }
+  }
+
+  if (isAgent) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <AlertCircle className="w-8 h-8 text-red-400 mb-3" />
+        <p className="text-sm text-heading font-medium">Access Denied</p>
+        <p className="text-xs text-muted mt-1">You don't have permission to view reports. Contact your administrator if you think this is a mistake.</p>
+      </div>
+    )
   }
 
   if (isLoading) {
