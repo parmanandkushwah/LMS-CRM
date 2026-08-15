@@ -1,15 +1,16 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Download, Trash2, MoreHorizontal,
-  Eye, Edit, Phone, Mail, SlidersHorizontal, X
+  Eye, Edit, Phone, Mail, SlidersHorizontal, X,
+  ChevronDown, Check
 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Table from '../../components/ui/Table'
 import { Badge, Avatar, Card } from '../../components/ui'
-import { Select } from '../../components/ui/FormElements'
 import EmptyState from '../../components/ui/EmptyState'
 import { cn, formatCurrency, formatDate, STATUS_COLORS, PRIORITY_COLORS } from '../../utils'
 import toast from 'react-hot-toast'
@@ -21,6 +22,105 @@ const STATUSES = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'w
 const PRIORITIES = ['low', 'medium', 'high', 'urgent']
 const SOURCES = ['website', 'referral', 'cold_call', 'email', 'social_media', 'advertisement', 'event', 'other']
 const PAGE_SIZE = 15
+
+// ─── Attractive ul/li Dropdown (portal-based to escape stacking contexts) ────────
+function Dropdown({ options, value, onChange, placeholder = 'Select', className = '' }) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef(null)
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 })
+  const selected = options.find(o => o.value === value)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (triggerRef.current && !triggerRef.current.contains(e.target) && !e.target.closest('.lead-dropdown')) {
+        setOpen(false)
+      }
+    }
+    function handleKey(e) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    function handleResize() {
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    window.addEventListener('resize', handleResize)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  const toggleOpen = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setCoords({ top: rect.bottom + 6, left: rect.left, width: rect.width })
+    }
+    setOpen(o => !o)
+  }
+
+  return (
+    <div className={cn('relative', className)}>
+      <button
+        type="button"
+        ref={triggerRef}
+        onClick={toggleOpen}
+        className={cn(
+          'w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all',
+          open
+            ? 'border-primary-500/50 ring-2 ring-primary-500/20 bg-white/5 text-heading'
+            : 'border-app bg-white/3 hover:border-white/30 hover:bg-white/5 text-heading',
+          !selected && 'text-muted'
+        )}
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          {selected?.dot && <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', selected.dot)} />}
+          <span className="truncate">{selected ? selected.label : placeholder}</span>
+        </span>
+        <ChevronDown className={cn('w-4 h-4 text-muted transition-transform flex-shrink-0', open && 'rotate-180')} />
+      </button>
+
+      {open && createPortal(
+        <motion.ul
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.98 }}
+          transition={{ duration: 0.15 }}
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            width: coords.width,
+          }}
+          className="z-[9999] py-1 rounded-xl border border-app shadow-card-dark bg-sidebar overflow-y-auto max-h-56 backdrop-blur-sm lead-dropdown"
+        >
+          {options.map(opt => (
+            <li key={opt.value}>
+              <button
+                type="button"
+                onClick={() => { onChange(opt.value); setOpen(false) }}
+                className={cn(
+                  'w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors',
+                  opt.value === value
+                    ? 'text-primary-500 bg-primary-500/10'
+                    : 'text-body hover:bg-white/5 hover:text-heading'
+                )}
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  {opt.dot && <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', opt.dot)} />}
+                  <span className="truncate">{opt.label}</span>
+                </span>
+                {opt.value === value && <Check className="w-4 h-4 text-primary-500 flex-shrink-0" />}
+              </button>
+            </li>
+          ))}
+        </motion.ul>,
+        document.body
+      )}
+    </div>
+  )
+}
 
 function StatusBadge({ status }) {
   return (
@@ -272,23 +372,23 @@ export default function Leads() {
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             <Card className="p-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Select
+                <Dropdown
                   placeholder="All Statuses"
                   value={statusFilter}
-                  onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-                  options={STATUSES.map(s => ({ value: s, label: s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) }))}
+                  onChange={(val) => { setStatusFilter(val); setPage(1) }}
+                  options={[{ value: '', label: 'All Statuses' }, ...STATUSES.map(s => ({ value: s, label: s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) }))]}
                 />
-                <Select
+                <Dropdown
                   placeholder="All Priorities"
                   value={priorityFilter}
-                  onChange={e => { setPriorityFilter(e.target.value); setPage(1) }}
-                  options={PRIORITIES.map(p => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))}
+                  onChange={(val) => { setPriorityFilter(val); setPage(1) }}
+                  options={[{ value: '', label: 'All Priorities' }, ...PRIORITIES.map(p => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))]}
                 />
-                <Select
+                <Dropdown
                   placeholder="All Sources"
                   value={sourceFilter}
-                  onChange={e => { setSourceFilter(e.target.value); setPage(1) }}
-                  options={SOURCES.map(s => ({ value: s, label: s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) }))}
+                  onChange={(val) => { setSourceFilter(val); setPage(1) }}
+                  options={[{ value: '', label: 'All Sources' }, ...SOURCES.map(s => ({ value: s, label: s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) }))]}
                 />
                 <Button variant="ghost" size="md" onClick={clearFilters} disabled={!hasFilters}>
                   <X className="w-3.5 h-3.5" />Clear
