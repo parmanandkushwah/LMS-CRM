@@ -49,6 +49,23 @@ export function getInitials(name = '') {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+export function parseDateTimeLocal(value) {
+  if (!value || typeof value !== 'string') return null
+  const [datePart, timePart] = value.split('T')
+  if (!datePart || !timePart) return null
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  if ([year, month, day, hour, minute].some(n => Number.isNaN(n))) return null
+  return new Date(year, month - 1, day, hour, minute, 0, 0)
+}
+
+export function toUtcISOString(value) {
+  if (!value) return ''
+  const d = parseDateTimeLocal(value)
+  if (!d || isNaN(d.getTime())) return value
+  return d.toISOString()
+}
+
 export function generateId() {
   return Math.random().toString(36).substr(2, 9)
 }
@@ -68,8 +85,9 @@ export const STATUS_COLORS = {
   meeting: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   proposal: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
   negotiation: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-  won: 'bg-green-500/10 text-green-400 border-green-500/20',
-  lost: 'bg-red-500/10 text-red-400 border-red-500/20',
+   won: 'bg-green-500/10 text-green-400 border-green-500/20',
+   lost: 'bg-red-500/10 text-red-400 border-red-500/20',
+   on_hold: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   active: 'bg-green-500/10 text-green-400 border-green-500/20',
   inactive: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',

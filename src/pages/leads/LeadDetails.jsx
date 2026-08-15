@@ -9,14 +9,15 @@ import {
 } from 'lucide-react'
 import { Card, Avatar, Badge } from '../../components/ui'
 import Button from '../../components/ui/Button'
-import { cn, formatCurrency, formatDate, formatRelativeTime, formatTime, STATUS_COLORS, PRIORITY_COLORS } from '../../utils'
+import { Checkbox } from '../../components/ui/FormElements'
+import { cn, formatCurrency, formatDate, formatRelativeTime, formatTime, toUtcISOString, STATUS_COLORS, PRIORITY_COLORS } from '../../utils'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import AddLeadModal from './AddLeadModal'
 
 const TABS = ['Overview', 'Timeline', 'Tasks', 'Notes', 'Files', 'Contacts']
 
-const PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost']
+const PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost', 'on_hold']
 
 const ACTIVITY_ICONS = {
   note: { icon: Edit, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -78,8 +79,9 @@ function StatusBar({ leadId, currentStatus, onUpdate }) {
     mutationKey: ['lead-status', leadId],
     mutationFn: (status) => api.patch(`/leads/${leadId}/status`, { status }),
     onSuccess: async (res) => {
-      await queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
-      await queryClient.refetchQueries({ queryKey: ['lead', leadId], exact: true })
+      const key = String(leadId)
+      await queryClient.invalidateQueries({ queryKey: ['lead', key] })
+      await queryClient.refetchQueries({ queryKey: ['lead', key], exact: true })
       toast.success('Status updated')
       onUpdate?.(res.data)
     },
@@ -94,6 +96,7 @@ function StatusBar({ leadId, currentStatus, onUpdate }) {
         const isActive = stageIdx <= currentIdx && currentStatus !== 'lost'
         const isCurrent = stage === currentStatus
         const isLost = currentStatus === 'lost'
+        const isOnHold = currentStatus === 'on_hold'
 
         return (
           <div key={stage} className="flex items-center gap-1">
@@ -103,6 +106,7 @@ function StatusBar({ leadId, currentStatus, onUpdate }) {
               className={cn(
                 'px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all',
                 isCurrent && isLost ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40' :
+                isCurrent && isOnHold ? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/40' :
                 isCurrent ? 'bg-primary-500/20 text-primary-500 ring-1 ring-primary-500/40' :
                 isActive ? 'bg-primary-500/10 text-primary-400 hover:bg-primary-500/20' :
                 'bg-white/5 text-muted hover:bg-white/10 hover:text-body'
@@ -346,6 +350,7 @@ function TasksTab({ leadId }) {
   const [title, setTitle] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
   const [description, setDescription] = useState('')
+  const [markAsFollowUp, setMarkAsFollowUp] = useState(false)
 
   const invalidateLeadDetail = async () => {
     await Promise.all([
@@ -367,7 +372,7 @@ function TasksTab({ leadId }) {
 
   const rawTaskPayload = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
   const tasks = rawTaskPayload
-  const pending = tasks.filter(t => (t.outcome || 'pending') === 'pending')
+  const pending = tasks.filter(t => (t.outcome || 'pending') === 'pending' || t.outcome === 'follow_up')
   const completed = tasks.filter(t => (t.outcome || 'completed') === 'completed')
 
   const addMutation = useMutation({
@@ -376,7 +381,7 @@ function TasksTab({ leadId }) {
     onSuccess: async () => {
       await invalidateLeadDetail()
       toast.success('Task added')
-      setTitle(''); setScheduledAt(''); setDescription(''); setShowForm(false)
+      setTitle(''); setScheduledAt(''); setDescription(''); setMarkAsFollowUp(false); setShowForm(false)
     },
     onError: (err) => toast.error(err.message),
   })
@@ -407,15 +412,15 @@ function TasksTab({ leadId }) {
       type: 'task',
       title: title.trim(),
       description: description.trim() || undefined,
-      scheduled_at: scheduledAt || undefined,
-      outcome: 'pending',
+      scheduled_at: scheduledAt ? toUtcISOString(scheduledAt) : undefined,
+      outcome: markAsFollowUp ? 'follow_up' : 'pending',
     })
   }
 
   const TaskRow = ({ task }) => (
     <div className="flex items-start gap-3 py-3 border-b border-app last:border-0">
       <button
-        onClick={() => task.outcome === 'pending' && completeMutation.mutate(task.id)}
+        onClick={() => (task.outcome === 'pending' || task.outcome === 'follow_up') && completeMutation.mutate(task.id)}
         disabled={completeMutation.isPending || task.outcome === 'completed'}
         className={cn(
           'mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all',
@@ -457,7 +462,7 @@ function TasksTab({ leadId }) {
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-        {task.outcome === 'pending' && (
+        {(task.outcome === 'pending' || task.outcome === 'follow_up') && (
           <button
             onClick={() => completeMutation.mutate(task.id)}
             disabled={completeMutation.isPending}
@@ -518,16 +523,25 @@ function TasksTab({ leadId }) {
             rows={2}
             className="w-full bg-transparent text-xs text-body placeholder:text-muted outline-none resize-none"
           />
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5">
-              <AlarmClock className="w-3.5 h-3.5 text-muted" />
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={e => setScheduledAt(e.target.value)}
-                className="bg-transparent text-xs text-muted outline-none"
-              />
-            </div>
+          <div className="space-y-2">
+            <Checkbox
+              checked={markAsFollowUp}
+              onChange={setMarkAsFollowUp}
+              label="Mark as follow up"
+            />
+            {markAsFollowUp && (
+              <div className="flex items-center gap-1.5">
+                <AlarmClock className="w-3.5 h-3.5 text-muted" />
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={e => setScheduledAt(e.target.value)}
+                  className="bg-transparent text-xs text-muted outline-none"
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end">
             <Button size="sm" onClick={handleAdd} disabled={addMutation.isPending}>
               {addMutation.isPending ? 'Saving…' : 'Save Task'}
             </Button>

@@ -472,12 +472,18 @@ export default function FollowUps() {
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
     queryKey: ['followups', 'pending'],
     queryFn: () => api.get('/followups'),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const { data: completedData, isLoading: completedLoading } = useQuery({
     queryKey: ['followups', 'completed'],
     queryFn: () => api.get('/followups', { params: { outcome: 'completed' } }),
     enabled: isCompletedView,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const pending = (pendingData?.data || []).map(mapFollowUp)
