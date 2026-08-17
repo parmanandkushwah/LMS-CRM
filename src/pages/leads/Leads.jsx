@@ -408,7 +408,7 @@ export default function Leads() {
           searchable
           searchValue={search}
           onSearch={handleSearch}
-          searchPlaceholder="Search leads..."
+          searchPlaceholder="Search by name, phone, email, company..."
           selectedRows={selectedRows}
           onSelectRow={(id, checked) => setSelectedRows(prev => checked ? [...prev, id] : prev.filter(r => r !== id))}
           onSelectAll={(checked) => setSelectedRows(checked ? leads.map(r => r.id) : [])}
