@@ -199,6 +199,26 @@ function ActionsMenu({ lead, onEdit, onDelete, canDelete }) {
   )
 }
 
+function StatusCard({ label, count, status, active, onClick }) {
+  const colorClass = status ? (STATUS_COLORS[status] || STATUS_COLORS.new) : 'text-primary-500/80 border-primary-500/30 bg-primary-500/5'
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer',
+        active ? cn(colorClass, 'ring-1 ring-primary-500/50 scale-[1.02]') : 'bg-white/3 border-app hover:bg-white/5 text-heading'
+      )}
+    >
+      <div>
+        <p className="text-xs text-muted uppercase tracking-wider">{label}</p>
+        <p className="text-lg font-bold mt-0.5">{count}</p>
+      </div>
+      {active && <div className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 ml-2" />}
+    </button>
+  )
+}
+
 export default function Leads() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -230,13 +250,23 @@ export default function Leads() {
     keepPreviousData: true,
   })
 
+  const { data: statsData } = useQuery({
+    queryKey: ['leads-stats'],
+    queryFn: () => api.get('/leads/stats'),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+
   const leads = data?.data || []
   const total = data?.pagination?.total || 0
+  const byStatus = statsData?.data?.byStatus || []
+  const getStatusCount = (status) => byStatus.find(s => s.status === status)?.count || 0
 
   const createMutation = useMutation({
     mutationFn: (payload) => api.post('/leads', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['leads-stats'] })
       toast.success('Lead added successfully!')
       setShowAdd(false)
     },
@@ -247,6 +277,7 @@ export default function Leads() {
     mutationFn: ({ id, payload }) => api.put(`/leads/${id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['leads-stats'] })
       toast.success('Lead updated!')
       setEditLead(null)
     },
@@ -257,6 +288,7 @@ export default function Leads() {
     mutationFn: (id) => api.delete(`/leads/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['leads-stats'] })
       toast.success('Lead deleted')
     },
     onError: (err) => toast.error(err.message),
@@ -266,14 +298,16 @@ export default function Leads() {
     mutationFn: (ids) => Promise.all(ids.map(id => api.delete(`/leads/${id}`))),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['leads-stats'] })
       setSelectedRows([])
       toast.success(`${selectedRows.length} leads deleted`)
     },
     onError: (err) => toast.error(err.message),
   })
 
-  const handleSearch = (val) => { setSearch(val); setPage(1) }
-  const clearFilters = () => { setStatusFilter(''); setPriorityFilter(''); setSourceFilter(''); setPage(1) }
+   const handleSearch = (val) => { setSearch(val); setPage(1) }
+  const clearFilters = () => { setStatusFilter(''); setPriorityFilter(''); setSourceFilter(''); setSearch(''); setPage(1) }
+  const filterByStatus = (status) => { setStatusFilter(status); setPriorityFilter(''); setSourceFilter(''); setSearch(''); setPage(1) }
   const hasFilters = statusFilter || priorityFilter || sourceFilter
 
   const columns = [
@@ -364,6 +398,21 @@ export default function Leads() {
             <Plus className="w-3.5 h-3.5" />Add Lead
           </Button>
         </div>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
+        <StatusCard label="Total" count={statsData?.data?.total || 0} status={null} active={!statusFilter} onClick={() => filterByStatus('')} />
+        {STATUSES.map(status => (
+          <StatusCard
+            key={status}
+            label={status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+            count={getStatusCount(status)}
+            status={status}
+            active={statusFilter === status}
+            onClick={() => filterByStatus(status)}
+          />
+        ))}
       </div>
 
       {/* Filters */}

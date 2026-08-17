@@ -12,9 +12,9 @@ export const PIPELINE_STAGES = [
   { id: 'qualified', label: 'Qualified', color: '#F59E0B' },
   { id: 'proposal', label: 'Proposal Sent', color: '#06B6D4' },
   { id: 'negotiation', label: 'Negotiation', color: '#EC4899' },
+  { id: 'on_hold', label: 'On Hold', color: '#6B7280' },
   { id: 'won', label: 'Won', color: '#10B981' },
   { id: 'lost', label: 'Lost', color: '#EF4444' },
-  { id: 'on_hold', label: 'On Hold', color: '#6B7280' },
 ]
 
 export const MOCK_LEADS = [

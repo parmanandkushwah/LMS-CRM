@@ -1,19 +1,30 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Search, Bell, Sun, Moon, Monitor, Plus, Menu,
   ChevronDown, Settings, User, LogOut, Command, X, CreditCard,
-  Users, CheckSquare, Building2, UserCheck
+  Users, CheckSquare, Building2, UserCheck, Edit, FileText
 } from 'lucide-react'
 import { cn, formatRelativeTime } from '../utils'
+import api from '../services/api'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useSidebar } from '../contexts/SidebarContext'
 import { Avatar } from '../components/ui'
 import Button from '../components/ui/Button'
-import { MOCK_ACTIVITIES } from '../constants'
 import toast from 'react-hot-toast'
+
+const NOTIFICATION_TYPES = {
+  lead_assigned: { icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  lead_updated: { icon: Edit, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  task_due: { icon: CheckSquare, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  quotation_viewed: { icon: FileText, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+  invoice_paid: { icon: CreditCard, color: 'text-green-400', bg: 'bg-green-500/10' },
+  mention: { icon: User, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+  system: { icon: Bell, color: 'text-gray-400', bg: 'bg-gray-500/10' },
+}
 
 const SEARCH_RESULTS = [
   { type: 'lead', label: 'Sarah Johnson', sub: 'TechCorp Inc', icon: Users, path: '/leads' },
@@ -71,8 +82,45 @@ function ThemeToggle() {
 }
 
 function NotificationBell() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const unread = 3
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api.get('/notifications', { params: { limit: 20 } }),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  })
+
+  const notifications = data?.data || []
+  const unread = data?.unreadCount || 0
+
+  const markReadMutation = useMutation({
+    mutationFn: (id) => api.patch(`/notifications/${id}/read`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onError: (err) => toast.error(err.message),
+  })
+
+  const markAllReadMutation = useMutation({
+    mutationFn: () => api.patch('/notifications/mark-all-read'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      toast.success('All notifications marked as read')
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const handleNotificationClick = (n) => {
+    if (!n.is_read) markReadMutation.mutate(n.id)
+    if (n.link) navigate(n.link)
+    setOpen(false)
+  }
+
+  const handleMarkAllRead = () => {
+    markAllReadMutation.mutate()
+  }
 
   return (
     <div className="relative">
@@ -91,29 +139,56 @@ function NotificationBell() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-11 w-80 bg-sidebar rounded-2xl border border-app shadow-card-dark z-20 overflow-hidden"
+              className="absolute right-0 top-11 w-80 bg-sidebar rounded-2xl border border-app shadow-card-dark z-[9999] overflow-hidden"
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-app">
                 <h4 className="text-sm font-semibold text-heading">Notifications</h4>
                 <span className="text-xs bg-primary-500/10 text-primary-500 px-2 py-0.5 rounded-full">{unread} new</span>
               </div>
               <div className="max-h-80 overflow-y-auto scrollbar-thin">
-                {MOCK_ACTIVITIES.map((a, i) => (
-                  <div key={a.id} className={cn('flex gap-3 px-4 py-3 hover:bg-white/4 transition-colors cursor-pointer border-b border-app last:border-0', i < unread && 'bg-primary-500/4')}>
-                    <div className="w-8 h-8 rounded-full bg-primary-500/10 flex items-center justify-center flex-shrink-0">
-                      <Bell className="w-3.5 h-3.5 text-primary-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-heading font-medium leading-relaxed">{a.message}</p>
-                      <p className="text-xs text-muted mt-0.5">{a.time}</p>
-                    </div>
-                    {i < unread && <div className="w-2 h-2 rounded-full bg-primary-500 mt-1.5 flex-shrink-0" />}
-                  </div>
-                ))}
+                {isLoading ? (
+                  <div className="p-4 text-center text-sm text-muted">Loading notifications…</div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted">No notifications</div>
+                ) : (
+                  notifications.map(n => {
+                    const meta = NOTIFICATION_TYPES[n.type] || NOTIFICATION_TYPES.system
+                    const Icon = meta.icon
+                    const isUnread = !n.is_read
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={cn(
+                          'flex gap-3 px-4 py-3 hover:bg-white/4 transition-colors cursor-pointer border-b border-app last:border-0',
+                          isUnread && 'bg-primary-500/4'
+                        )}
+                      >
+                        <div className={cn('w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', meta.bg)}>
+                          <Icon className={cn('w-3.5 h-3.5', meta.color)} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-heading font-medium leading-relaxed">{n.title}</p>
+                          <p className="text-xs text-muted mt-0.5">{n.message}</p>
+                          <p className="text-xs text-muted mt-0.5">{formatRelativeTime(n.createdAt || n.created_at)}</p>
+                        </div>
+                        {isUnread && <div className="w-2 h-2 rounded-full bg-primary-500 mt-1.5 flex-shrink-0" />}
+                      </div>
+                    )
+                  })
+                )}
               </div>
-              <div className="px-4 py-3 border-t border-app">
-                <button className="text-xs text-primary-500 hover:text-primary-600 font-medium transition-colors">Mark all as read</button>
-              </div>
+              {unread > 0 && (
+                <div className="px-4 py-3 border-t border-app">
+                  <button
+                    onClick={handleMarkAllRead}
+                    disabled={markAllReadMutation.isPending}
+                    className="text-xs text-primary-500 hover:text-primary-600 font-medium transition-colors"
+                  >
+                    {markAllReadMutation.isPending ? 'Marking…' : 'Mark all as read'}
+                  </button>
+                </div>
+              )}
             </motion.div>
           </>
         )}

@@ -154,12 +154,20 @@ export default function AddLeadModal({ open, onClose, onAdd, editLead = null }) 
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: editLead ? {
-      ...editLead,
-      assigned_to: editLead.assigned_to ? String(editLead.assigned_to) : '',
-      estimated_value: editLead.estimated_value ? String(editLead.estimated_value) : '',
-    } : { status: 'new', priority: 'medium', source: 'other' },
+    defaultValues: { status: 'new', priority: 'medium', source: 'other' },
   })
+
+  useEffect(() => {
+    if (editLead) {
+      reset({
+        ...editLead,
+        assigned_to: editLead.assigned_to ? String(editLead.assigned_to) : '',
+        estimated_value: editLead.estimated_value ? String(editLead.estimated_value) : '',
+      })
+    } else {
+      reset({ status: 'new', priority: 'medium', source: 'other' })
+    }
+  }, [editLead, reset])
 
   const onSubmit = async (data) => {
     const payload = {
