@@ -350,7 +350,7 @@ export default function Leads() {
       className: 'hidden lg:table-cell w-[12%]', cellClassName: 'hidden lg:table-cell',
       render: (val) => val ? (
         <Avatar name={val.name} size="xs" />
-      ) : <span className="text-xs text-muted">N/A</span>
+      ) : <span className="text-xs text-muted">N/A</span>,
     },
     {
       key: 'estimated_value', label: 'Value', sortable: true,
