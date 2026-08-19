@@ -213,20 +213,22 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <motion.aside
-        animate={{ width: collapsed ? 68 : 240 }}
-        transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-        className="hidden lg:flex flex-col glass-sidebar h-screen sticky top-0 flex-shrink-0 overflow-hidden"
-      >
-        {sidebarContent}
+      <div className="relative hidden lg:flex z-20">
+        <motion.aside
+          animate={{ width: collapsed ? 68 : 240 }}
+          transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+          className="flex flex-col glass-sidebar h-screen sticky top-0 flex-shrink-0 overflow-hidden"
+        >
+          {sidebarContent}
+        </motion.aside>
         {/* Collapse Toggle */}
         <button
           onClick={toggle}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full glass border border-app flex items-center justify-center text-muted hover:text-heading hover:border-primary-500/50 transition-all z-10 shadow-card"
+          className="absolute -right-3 top-3 w-6 h-6 rounded-full glass border border-app flex items-center justify-center text-muted hover:text-heading hover:border-primary-500/50 transition-all z-50 shadow-card"
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
-      </motion.aside>
+      </div>
 
       {/* Mobile Sidebar */}
       <AnimatePresence>

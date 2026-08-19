@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Search, Bell, Sun, Moon, Monitor, Plus, Menu,
-  ChevronDown, Settings, User, LogOut, Command, X, CreditCard,
+  ChevronDown, ChevronLeft, ChevronRight, Settings, User, LogOut, Command, X, CreditCard,
   Users, CheckSquare, Building2, UserCheck, Edit, FileText
 } from 'lucide-react'
 import { cn, formatRelativeTime } from '../utils'
@@ -352,7 +352,7 @@ function GlobalSearch() {
 }
 
 export default function Header({ title, subtitle }) {
-  const { toggleMobile } = useSidebar()
+  const { toggle, collapsed, toggleMobile } = useSidebar()
   const navigate = useNavigate()
 
   return (
@@ -373,6 +373,13 @@ export default function Header({ title, subtitle }) {
       <GlobalSearch />
 
       <div className="flex items-center gap-1">
+        <button
+          onClick={toggle}
+          className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:text-heading hover:bg-white/8 transition-all"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
         <Button
           variant="primary"
           size="sm"

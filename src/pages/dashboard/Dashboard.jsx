@@ -107,7 +107,6 @@ function RevenueChart({ data, loading, period }) {
   const chartData = (data || []).map(d => ({
     month: new Date(d.month).toLocaleString('default', { month: 'short', year: period === 'yearly' ? '2-digit' : undefined }),
     revenue: parseFloat(d.total) || 0,
-    paid: parseFloat(d.paid) || 0,
   }))
 
   return (
@@ -115,11 +114,10 @@ function RevenueChart({ data, loading, period }) {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-sm font-semibold text-heading">Revenue Overview</h3>
-          <p className="text-xs text-muted mt-0.5">Invoiced vs collected</p>
+          <p className="text-xs text-muted mt-0.5">Won deals value</p>
         </div>
         <div className="flex gap-4 text-xs text-muted">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500 inline-block" />Invoiced</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-brand-blue inline-block" />Collected</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Won deals</span>
         </div>
       </div>
       {loading ? (
@@ -134,17 +132,12 @@ function RevenueChart({ data, loading, period }) {
                 <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="paidGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} />
             <Tooltip content={<CustomTooltip />} />
             <Area type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} fill="url(#revGrad)" name="revenue" />
-            <Area type="monotone" dataKey="paid" stroke="#3B82F6" strokeWidth={2} fill="url(#paidGrad)" name="paid" />
           </AreaChart>
         </ResponsiveContainer>
       )}

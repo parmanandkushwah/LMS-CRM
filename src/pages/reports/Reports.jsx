@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, TrendingUp, DollarSign, Users, Target, AlertCircle } from 'lucide-react'
+import { Download, TrendingUp, IndianRupee, Users, Target, AlertCircle } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -65,7 +65,7 @@ export default function Reports() {
     const leads = data.leads || []
     const agents = data.agents || []
 
-    const totalRevenue = invoices.reduce((s, i) => s + (Number(i.total) || 0), 0)
+     const totalRevenue = invoices.reduce((s, i) => s + (Number(i.estimated_value) || 0), 0)
     const totalLeads = leads.length
     const dealsClosed = invoices.length
     const wonLeads = leads.filter(l => l.status === 'won').length
@@ -80,7 +80,7 @@ export default function Reports() {
     const leadsByMonth = {}
     leads.forEach(l => { const k = ym(l.createdAt || l.created_at); leadsByMonth[k] = (leadsByMonth[k] || 0) + 1 })
     const dealsByMonth = {}
-    invoices.forEach(inv => { const k = ym(inv.issue_date); dealsByMonth[k] = (dealsByMonth[k] || 0) + 1 })
+    invoices.forEach(inv => { const k = ym(inv.actual_close_date || inv.closed_at || inv.createdAt || inv.created_at); dealsByMonth[k] = (dealsByMonth[k] || 0) + 1 })
 
     const table = (data.revenue.monthly || []).map(m => {
       const k = ym(m.month)
@@ -116,7 +116,7 @@ export default function Reports() {
 
     return {
       kpis: [
-        { title: 'Total Revenue', value: money(totalRevenue), change: revGrowth ?? undefined, changeType: revGrowth >= 0 ? 'positive' : 'negative', icon: DollarSign, iconColor: 'text-primary-500', iconBg: 'bg-primary-500/10' },
+         { title: 'Total Revenue', value: money(totalRevenue), change: revGrowth ?? undefined, changeType: revGrowth >= 0 ? 'positive' : 'negative', icon: IndianRupee, iconColor: 'text-primary-500', iconBg: 'bg-primary-500/10' },
         { title: 'Total Leads', value: formatNumber(totalLeads), icon: Users, iconColor: 'text-brand-blue', iconBg: 'bg-brand-blue/10' },
         { title: 'Deals Closed', value: formatNumber(dealsClosed), icon: Target, iconColor: 'text-brand-purple', iconBg: 'bg-brand-purple/10' },
         { title: 'Conversion Rate', value: `${conversionRate}%`, icon: TrendingUp, iconColor: 'text-yellow-400', iconBg: 'bg-yellow-500/10' },
