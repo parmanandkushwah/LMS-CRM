@@ -1166,13 +1166,23 @@ export default function LeadDetails() {
             <InfoRow icon={Building2} label="Company" value={lead.company_name} />
             <InfoRow icon={Globe} label="Website" value={lead.company_website} />
             <InfoRow icon={DollarSign} label="Est. Value" value={lead.estimated_value ? formatCurrency(lead.estimated_value) : null} />
-            <InfoRow
-              icon={User}
-              label="Assigned To"
-              value={lead.assignees?.length > 0
-                ? (<div className="flex items-center gap-1.5">{lead.assignees.slice(0, 3).map(a => <Avatar key={a.id} name={a.name} size="xs" />)}{lead.assignees.length > 3 && <span className="text-xs text-muted">+{lead.assignees.length - 3}</span>}</div>)
-                : (lead.assignee?.name || 'Unassigned')}
-            />
+            <div className="flex items-center gap-3 py-2.5 border-b border-app last:border-0">
+              <div className="w-7 h-7 rounded-lg bg-white/6 flex items-center justify-center flex-shrink-0">
+                <User className="w-3.5 h-3.5 text-muted" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted">Assigned To</p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  {(lead.assignees?.length > 0 ? lead.assignees : (lead.assignee ? [lead.assignee] : [])).map(a => (
+                    <div key={a.id} className="flex items-center gap-1.5">
+                      <Avatar name={a.name} size="xs" />
+                      <span className="text-sm text-body">{a.name}</span>
+                    </div>
+                  ))}
+                  {(!lead.assignees?.length && !lead.assignee) && <span className="text-xs text-muted">Unassigned</span>}
+                </div>
+              </div>
+            </div>
             <InfoRow icon={Tag} label="Source" value={lead.source?.replace('_', ' ')} />
             <InfoRow icon={Calendar} label="Created" value={formatDate(lead.createdAt || lead.created_at)} />
             <InfoRow icon={Clock} label="Expected Close" value={formatDate(lead.expected_close_date)} />

@@ -219,6 +219,33 @@ function StatusCard({ label, count, status, active, onClick }) {
   )
 }
 
+function AvatarStack({ assignees }) {
+  const [hoveredId, setHoveredId] = useState(null);
+  if (!assignees || assignees.length === 0) return null;
+  if (assignees.length === 1) return <Avatar name={assignees[0].name} size="xs" />;
+  const visible = assignees.length <= 3 ? assignees : assignees.slice(0, 2);
+  return (
+    <div className="flex items-center gap-1">
+      {visible.map(a => (
+        <div
+          key={a.id}
+          className="relative"
+          onMouseEnter={() => setHoveredId(a.id)}
+          onMouseLeave={() => setHoveredId(null)}
+        >
+          <Avatar name={a.name} size="xs" />
+          {hoveredId === a.id && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 flex px-2 py-1 bg-dark-bg border border-app rounded-md shadow-lg whitespace-nowrap text-xs text-heading pointer-events-none">
+              {a.name}
+            </div>
+          )}
+        </div>
+      ))}
+      {assignees.length > 3 && <span className="text-xs text-muted">+{assignees.length - 2}</span>}
+    </div>
+  );
+}
+
 export default function Leads() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -352,18 +379,7 @@ export default function Leads() {
         const assignees = val || [];
         const allAssignees = assignees.length > 0 ? assignees : (row.assignee ? [row.assignee] : []);
         if (allAssignees.length === 0) return <span className="text-xs text-muted">—</span>;
-        if (allAssignees.length === 1) return <Avatar name={allAssignees[0].name} size="xs" />;
-        if (allAssignees.length <= 3) return (
-          <div className="flex items-center -space-x-2">
-            {allAssignees.map(a => <Avatar key={a.id} name={a.name} size="xs" />)}
-          </div>
-        );
-        return (
-          <div className="flex items-center -space-x-2">
-            {allAssignees.slice(0, 2).map(a => <Avatar key={a.id} name={a.name} size="xs" />)}
-            <span className="text-xs text-muted">+{allAssignees.length - 2}</span>
-          </div>
-        );
+        return <AvatarStack assignees={allAssignees} />;
       }
     },
     {
