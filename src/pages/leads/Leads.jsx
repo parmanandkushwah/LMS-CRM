@@ -12,7 +12,7 @@ import Button from '../../components/ui/Button'
 import Table from '../../components/ui/Table'
 import { Badge, Avatar, Card } from '../../components/ui'
 import EmptyState from '../../components/ui/EmptyState'
-import { cn, formatCurrency, formatDate, STATUS_COLORS, PRIORITY_COLORS } from '../../utils'
+import { cn, formatCurrency, formatDate, formatTime, STATUS_COLORS, PRIORITY_COLORS } from '../../utils'
 import toast from 'react-hot-toast'
 import AddLeadModal from './AddLeadModal'
 import api from '../../services/api'
@@ -336,19 +336,21 @@ export default function Leads() {
     { key: 'status', label: 'Status', sortable: true, className: 'w-[10%]', render: (val) => <StatusBadge status={val} /> },
     { key: 'priority', label: 'Priority', className: 'w-[10%]', render: (val) => <PriorityDot priority={val} /> },
     {
-      key: 'source', label: 'Source',
-      className: 'hidden lg:table-cell w-[10%]', cellClassName: 'hidden lg:table-cell truncate',
-      render: (val) => <span className="text-xs text-body capitalize truncate">{val?.replace('_', ' ')}</span>
+      key: 'next_follow_date', label: 'FDt',
+      className: 'hidden lg:table-cell w-[11%]', cellClassName: 'hidden lg:table-cell truncate',
+      render: (val) => val ? (
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-heading">{formatDate(val)}</span>
+          <span className="text-xs text-muted">{formatTime(val)}</span>
+        </div>
+      ) : <span className="text-xs text-muted">—</span>
     },
     {
-      key: 'assignee', label: 'Assigned',
+      key: 'assignee', label: 'Owner',
       className: 'hidden lg:table-cell w-[12%]', cellClassName: 'hidden lg:table-cell',
       render: (val) => val ? (
-        <div className="flex items-center gap-2 min-w-0">
-          <Avatar name={val.name} size="xs" />
-          <span className="text-xs text-body truncate hidden lg:block">{val.name}</span>
-        </div>
-      ) : <span className="text-xs text-muted">Unassigned</span>
+        <Avatar name={val.name} size="xs" />
+      ) : <span className="text-xs text-muted">N/A</span>
     },
     {
       key: 'estimated_value', label: 'Value', sortable: true,
