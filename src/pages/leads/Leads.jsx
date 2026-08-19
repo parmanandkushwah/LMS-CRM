@@ -222,7 +222,6 @@ function StatusCard({ label, count, status, active, onClick }) {
 function AvatarStack({ assignees }) {
   const [hoveredId, setHoveredId] = useState(null);
   if (!assignees || assignees.length === 0) return null;
-  if (assignees.length === 1) return <Avatar name={assignees[0].name} size="xs" />;
   const visible = assignees.length <= 3 ? assignees : assignees.slice(0, 2);
   return (
     <div className="flex items-center gap-1">
@@ -235,7 +234,7 @@ function AvatarStack({ assignees }) {
         >
           <Avatar name={a.name} size="xs" />
           {hoveredId === a.id && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 flex px-2 py-1 bg-dark-bg border border-app rounded-md shadow-lg whitespace-nowrap text-xs text-heading pointer-events-none">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 flex px-2 py-1 bg-gray-800 dark:bg-gray-200 border border-app rounded-md shadow-lg whitespace-nowrap text-xs text-white dark:text-gray-800 pointer-events-none">
               {a.name}
             </div>
           )}
