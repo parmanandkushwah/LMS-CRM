@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { cn } from '../../utils'
 import Button from './Button'
 import { Skeleton } from './index'
@@ -42,12 +42,21 @@ export default function Table({
       {searchable && (
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-          <input
-            value={searchValue}
-            onChange={e => onSearch?.(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="w-full h-9 pl-9 pr-4 rounded-xl border border-app bg-card text-heading placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500/50 transition-all"
-          />
+            <input
+              value={searchValue}
+              onChange={e => onSearch?.(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full h-9 pl-9 pr-4 rounded-xl border border-app bg-card text-heading placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500/50 transition-all"
+            />
+            {searchValue && (
+              <button
+                type="button"
+                onClick={() => onSearch?.('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-white/10 flex items-center justify-center text-muted hover:text-heading transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
         </div>
       )}
       <div className="rounded-2xl border border-app">
