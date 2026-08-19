@@ -77,7 +77,7 @@ export function exportReportsToExcel(view, data, { filename } = {}) {
       l.status || '',
       l.source || '',
       l.priority || '',
-      l.assignee?.name || '',
+      l.assignees?.map(a => a.name).join(', ') || l.assignee?.name || '',
       num(l.estimated_value),
       l.createdAt || l.created_at || '',
     ])

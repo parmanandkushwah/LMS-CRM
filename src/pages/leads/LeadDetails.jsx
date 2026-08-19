@@ -1166,7 +1166,13 @@ export default function LeadDetails() {
             <InfoRow icon={Building2} label="Company" value={lead.company_name} />
             <InfoRow icon={Globe} label="Website" value={lead.company_website} />
             <InfoRow icon={DollarSign} label="Est. Value" value={lead.estimated_value ? formatCurrency(lead.estimated_value) : null} />
-            <InfoRow icon={User} label="Assigned To" value={lead.assignee?.name} />
+            <InfoRow
+              icon={User}
+              label="Assigned To"
+              value={lead.assignees?.length > 0
+                ? (<div className="flex items-center gap-1.5">{lead.assignees.slice(0, 3).map(a => <Avatar key={a.id} name={a.name} size="xs" />)}{lead.assignees.length > 3 && <span className="text-xs text-muted">+{lead.assignees.length - 3}</span>}</div>)
+                : (lead.assignee?.name || 'Unassigned')}
+            />
             <InfoRow icon={Tag} label="Source" value={lead.source?.replace('_', ' ')} />
             <InfoRow icon={Calendar} label="Created" value={formatDate(lead.createdAt || lead.created_at)} />
             <InfoRow icon={Clock} label="Expected Close" value={formatDate(lead.expected_close_date)} />

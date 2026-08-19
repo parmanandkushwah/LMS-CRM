@@ -18,7 +18,7 @@ function mapLead(l) {
     company: l.company_name || '',
     priority: l.priority,
     budget: Number(l.estimated_value) || 0,
-    assignedTo: l.assignee?.name || 'Unassigned',
+    assignedTo: l.assignees?.map(a => a.name).join(', ') || l.assignee?.name || 'Unassigned',
     status: l.status,
     avatar: l.avatar,
   }

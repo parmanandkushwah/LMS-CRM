@@ -55,7 +55,7 @@ const schema = z.object({
   status:              z.string().min(1),
   priority:            z.string().min(1),
   source:              z.string().min(1),
-  assigned_to:         z.string().optional(),
+  assigned_to:         z.array(z.string()).optional(),
   estimated_value:     z.string().optional(),
   expected_close_date: z.string().optional(),
   notes:               z.string().optional(),
@@ -129,6 +129,91 @@ function CustomSelect({ label, value, onChange, options, placeholder, error, ren
   )
 }
 
+function MultiSelect({ label, value, onChange, options, placeholder, error, renderOption }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selectedValues = value || []
+  const toggleValue = (val) => {
+    const newValues = selectedValues.includes(val)
+      ? selectedValues.filter(v => v !== val)
+      : [...selectedValues, val]
+    onChange(newValues)
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5" ref={ref}>
+      {label && <label className="text-xs font-medium text-muted uppercase tracking-wide">{label}</label>}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className={cn(
+            'w-full h-10 flex items-center justify-between px-3 rounded-xl border bg-white/5 text-sm transition-all',
+            open ? 'border-primary-500/50 ring-2 ring-primary-500/20' : 'border-app hover:border-white/20',
+            error ? 'border-red-500/50' : '',
+            !selectedValues.length ? 'text-muted' : 'text-heading'
+          )}
+        >
+          <span className="flex items-center gap-1.5 truncate">
+            {selectedValues.length > 0
+              ? <span className="flex flex-wrap gap-0.5">
+                  {selectedValues.slice(0, 3).map(v => {
+                    const opt = options.find(o => o.value === v)
+                    return <span key={v} className="text-xs bg-white/10 text-body px-1.5 py-0.5 rounded truncate max-w-20">{opt?.label || v}</span>
+                  })}
+                  {selectedValues.length > 3 && <span className="text-xs text-muted">+{selectedValues.length - 3}</span>}
+                </span>
+              : (placeholder || 'Select...')}
+          </span>
+          <ChevronDown className={cn('w-4 h-4 text-muted flex-shrink-0 transition-transform', open && 'rotate-180')} />
+        </button>
+
+        <AnimatePresence>
+          {open && (
+            <motion.ul
+              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="absolute z-50 w-full mt-1.5 border border-white/10 rounded-xl overflow-hidden shadow-card-dark max-h-52 overflow-y-auto"
+              style={{ background: 'rgba(15, 23, 42, 0.97)', backdropFilter: 'blur(8px)' }}
+            >
+              {options.map(opt => {
+                const isSelected = selectedValues.includes(opt.value)
+                return (
+                  <li
+                    key={opt.value}
+                    onClick={() => toggleValue(opt.value)}
+                    className={cn(
+                      'flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors text-sm',
+                      isSelected
+                        ? 'bg-primary-500/15 text-primary-500'
+                        : 'text-body hover:bg-white/10 hover:text-heading'
+                    )}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      {renderOption ? renderOption(opt) : opt.label}
+                    </span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />}
+                  </li>
+                )
+              })}
+            </motion.ul>
+          )}
+        </AnimatePresence>
+      </div>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+    </div>
+  )
+}
+
 // ─── Section Header ───────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
   return (
@@ -159,20 +244,21 @@ export default function AddLeadModal({ open, onClose, onAdd, editLead = null }) 
 
   useEffect(() => {
     if (editLead) {
+      const assigneeIds = editLead.assignees?.map(a => String(a.id)) || (editLead.assigned_to ? [String(editLead.assigned_to)] : []);
       reset({
         ...editLead,
-        assigned_to: editLead.assigned_to ? String(editLead.assigned_to) : '',
+        assigned_to: assigneeIds,
         estimated_value: editLead.estimated_value ? String(editLead.estimated_value) : '',
       })
     } else {
-      reset({ status: 'new', priority: 'medium', source: 'other' })
+      reset({ status: 'new', priority: 'medium', source: 'other', assigned_to: [] })
     }
   }, [editLead, reset])
 
   const onSubmit = async (data) => {
     const payload = {
       ...data,
-      assigned_to:     data.assigned_to ? parseInt(data.assigned_to) : undefined,
+      assigned_to:     Array.isArray(data.assigned_to) ? data.assigned_to.map(id => parseInt(id)) : (data.assigned_to ? parseInt(data.assigned_to) : undefined),
       estimated_value: data.estimated_value ? parseFloat(data.estimated_value) : undefined,
       expected_close_date: data.expected_close_date || undefined,
     }
@@ -329,10 +415,10 @@ export default function AddLeadModal({ open, onClose, onAdd, editLead = null }) 
             name="assigned_to"
             control={control}
             render={({ field }) => (
-              <CustomSelect
+              <MultiSelect
                 label="Assign To"
-                placeholder="Select agent"
-                value={field.value}
+                placeholder="Select agents"
+                value={field.value || []}
                 onChange={field.onChange}
                 options={users.map(u => ({ value: String(u.id), label: u.name, role: u.role }))}
                 renderOption={(opt) => (
@@ -344,12 +430,6 @@ export default function AddLeadModal({ open, onClose, onAdd, editLead = null }) 
                       <span className="block text-sm text-heading">{opt.label}</span>
                       <span className="block text-xs text-muted capitalize">{opt.role}</span>
                     </span>
-                  </span>
-                )}
-                renderValue={(opt) => (
-                  <span className="flex items-center gap-2">
-                    <UserCheck className="w-3.5 h-3.5 text-primary-500" />
-                    {opt.label}
                   </span>
                 )}
               />

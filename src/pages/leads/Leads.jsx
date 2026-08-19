@@ -346,11 +346,25 @@ export default function Leads() {
       ) : <span className="text-xs text-muted">—</span>
     },
     {
-      key: 'assignee', label: 'Owner',
+      key: 'assignees', label: 'Owner',
       className: 'hidden lg:table-cell w-[12%]', cellClassName: 'hidden lg:table-cell',
-      render: (val) => val ? (
-        <Avatar name={val.name} size="xs" />
-      ) : <span className="text-xs text-muted">N/A</span>,
+      render: (val, row) => {
+        const assignees = val || [];
+        const allAssignees = assignees.length > 0 ? assignees : (row.assignee ? [row.assignee] : []);
+        if (allAssignees.length === 0) return <span className="text-xs text-muted">—</span>;
+        if (allAssignees.length === 1) return <Avatar name={allAssignees[0].name} size="xs" />;
+        if (allAssignees.length <= 3) return (
+          <div className="flex items-center -space-x-2">
+            {allAssignees.map(a => <Avatar key={a.id} name={a.name} size="xs" />)}
+          </div>
+        );
+        return (
+          <div className="flex items-center -space-x-2">
+            {allAssignees.slice(0, 2).map(a => <Avatar key={a.id} name={a.name} size="xs" />)}
+            <span className="text-xs text-muted">+{allAssignees.length - 2}</span>
+          </div>
+        );
+      }
     },
     {
       key: 'estimated_value', label: 'Value', sortable: true,
