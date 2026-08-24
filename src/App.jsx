@@ -20,7 +20,10 @@ import Employees from './pages/employees/Employees'
 import Tasks from './pages/tasks/Tasks'
 import FollowUps from './pages/followups/FollowUps'
 import Quotations from './pages/quotations/Quotations'
+import Invoices from './pages/invoices/Invoices'
+import Purchases from './pages/purchases/Purchases'
 import Reports from './pages/reports/Reports'
+import FinancialReports from './pages/reports/FinancialReports'
 import Settings from './pages/settings/Settings'
 import { Calendar, Companies, Documents, Profile, Subscription } from './pages/misc/MiscPages'
 import { NotFound, Forbidden, ServerError } from './pages/errors/ErrorPages'
@@ -73,6 +76,13 @@ export default function App() {
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="followups" element={<FollowUps />} />
                 <Route path="quotations" element={<Quotations />} />
+                <Route path="invoices" element={<Invoices />} />
+                <Route path="purchases" element={<Purchases />} />
+                <Route path="financial-reports" element={
+                  <RoleGuard roles={['admin', 'manager']}>
+                    <FinancialReports />
+                  </RoleGuard>
+                } />
                 <Route path="calendar" element={<Calendar />} />
                 <Route path="documents" element={<Documents />} />
                 <Route path="settings" element={<Settings />} />

@@ -386,15 +386,15 @@ function QuotationFormModal({ open, onClose, quotationId }) {
     queryFn: () => api.get('/leads', { params: { limit: 1000 } }),
     enabled: open,
   })
-  const { data: productsData } = useQuery({
-    queryKey: ['quotations-product-options'],
-    queryFn: () => api.get('/products', { params: { limit: 1000, is_active: true } }),
+  const { data: purchaseItemsData } = useQuery({
+    queryKey: ['quotations-purchase-item-options'],
+    queryFn: () => api.get('/purchases/items'),
     enabled: open,
   })
 
   const leadOptions = (leadsData?.data || []).map(l => ({ value: String(l.id), label: l.title || l.contact_name || `Lead #${l.id}` }))
-  const products = productsData?.data || []
-  const productOptions = products.map(p => ({ value: String(p.id), label: `${p.name} \u00B7 ${money(p.price, p.currency)}` }))
+  const purchaseItems = purchaseItemsData?.data || []
+  const productOptions = purchaseItems.map(p => ({ value: String(p.id), label: `${p.name} \u00B7 ${money(p.unit_price, p.currency)}` }))
 
   useEffect(() => {
     if (!open) return
@@ -423,10 +423,10 @@ function QuotationFormModal({ open, onClose, quotationId }) {
   const setItem = (idx, patch) => setForm(p => ({ ...p, items: p.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }))
   const removeItem = (idx) => setForm(p => ({ ...p, items: p.items.filter((_, i) => i !== idx) }))
   const addItem = () => setForm(p => ({ ...p, items: [...p.items, blankItem()] }))
-  const addProduct = (productId) => {
-    const p = products.find(pr => String(pr.id) === productId)
+  const addProduct = (itemId) => {
+    const p = purchaseItems.find(pr => String(pr.id) === itemId)
     if (!p) return
-    setForm(f => ({ ...f, items: [...f.items, { product_id: p.id, name: p.name, description: p.description || '', quantity: 1, unit: p.unit || 'piece', unit_price: p.price, tax_rate: p.tax_rate || 0, discount_value: 0 }] }))
+    setForm(f => ({ ...f, items: [...f.items, { product_id: p.product_id || '', name: p.name, description: p.description || '', quantity: 1, unit: p.unit || 'piece', unit_price: p.unit_price, tax_rate: p.tax_rate || 0, discount_value: 0 }] }))
   }
 
   const totals = computeTotals(form.items, form.discount_type, form.discount_value)
@@ -502,7 +502,7 @@ function QuotationFormModal({ open, onClose, quotationId }) {
                     <input className={cn(cell, 'h-7 text-xs')} placeholder="Description (optional)" value={it.description} onChange={e => setItem(idx, { description: e.target.value })} />
                   </div>
                   <div className="col-span-3 sm:col-span-2"><input type="number" min="0" className={cn(cell, 'text-right')} value={it.quantity} onChange={e => setItem(idx, { quantity: e.target.value })} /></div>
-                  <div className="col-span-4 sm:col-span-2"><input type="number" min="0" className={cn(cell, 'text-right')} value={it.unit_price} onChange={e => setItem(idx, { unit_price: e.target.value })} /></div>
+                  <div className="col-span-4 sm:col-span-2"><input type="number" min="0" step="0.01" className={cn(cell, 'text-right')} value={it.unit_price} onChange={e => setItem(idx, { unit_price: e.target.value })} /></div>
                   <div className="col-span-3 sm:col-span-1"><input type="number" min="0" className={cn(cell, 'text-right')} value={it.tax_rate} onChange={e => setItem(idx, { tax_rate: e.target.value })} /></div>
                   <div className="col-span-1 sm:col-span-2 flex items-center h-9 justify-end text-xs font-medium text-heading truncate">{money(c.total, form.currency)}</div>
                   <div className="col-span-1 flex items-center h-9 justify-end">

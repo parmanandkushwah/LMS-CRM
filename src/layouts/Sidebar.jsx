@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Users, Kanban, UserCheck, Building2, UserCog,
   CheckSquare, Bell, CalendarDays, BarChart3, FolderOpen,
-  ChevronLeft, ChevronRight, Zap, X, FileText
+  ChevronLeft, ChevronRight, Zap, X, FileText, Receipt, Truck, IndianRupee
 } from 'lucide-react'
 import { cn } from '../utils'
 import { useSidebar } from '../contexts/SidebarContext'
@@ -36,6 +36,8 @@ const NAV_SECTIONS = [
       { path: '/tasks', label: 'Tasks', icon: CheckSquare },
       { path: '/followups', label: 'Follow Ups', icon: Bell },
       { path: '/quotations', label: 'Quotations', icon: FileText },
+      { path: '/invoices', label: 'Invoices', icon: Receipt },
+      { path: '/purchases', label: 'Purchases', icon: Truck },
       { path: '/calendar', label: 'Calendar', icon: CalendarDays },
     ]
   },
@@ -43,6 +45,7 @@ const NAV_SECTIONS = [
     label: 'Insights',
     items: [
       { path: '/reports', label: 'Reports', icon: BarChart3 },
+      { path: '/financial-reports', label: 'Financial Reports', icon: IndianRupee },
       { path: '/documents', label: 'Documents', icon: FolderOpen },
     ]
   },
