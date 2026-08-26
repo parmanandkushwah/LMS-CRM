@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Building2, User, Palette, Shield, Bell, Mail, Globe, Upload } from 'lucide-react'
+import { Building2, User, Palette, Shield, Bell, Mail, Globe, Upload, FileText } from 'lucide-react'
 import { Card } from '../../components/ui'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -9,10 +9,12 @@ import { Switch } from '../../components/ui/FormElements'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { companyApi, appearanceApi, notificationApi, securityApi, smtpApi, profileApi } from '../../services/settings'
+import api from '../../services/api'
 import toast from 'react-hot-toast'
 
 const TABS = [
   { id: 'company', label: 'Company', icon: Building2 },
+  { id: 'non-gst', label: 'Non-GST', icon: FileText },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'theme', label: 'Appearance', icon: Palette },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -24,7 +26,7 @@ function CompanySettings() {
   const qc = useQueryClient()
   const fileRef = useRef(null)
   const { data } = useQuery({ queryKey: ['settings', 'company'], queryFn: () => companyApi.get() })
-  const [form, setForm] = useState({ name: '', website: '', industry: '', companySize: '', phone: '', address: '', logo: '' })
+  const [form, setForm] = useState({ name: '', website: '', industry: '', companySize: '', phone: '', address: '', gstin: '', logo: '' })
   useEffect(() => { if (data?.data) setForm(f => ({ ...f, ...data.data })) }, [data])
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -67,7 +69,41 @@ function CompanySettings() {
         <Input label="Industry" value={form.industry} onChange={(e) => set('industry', e.target.value)} />
         <Input label="Company Size" value={form.companySize} onChange={(e) => set('companySize', e.target.value)} />
         <Input label="Phone" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
-        <Input label="Address" value={form.address} onChange={(e) => set('address', e.target.value)} />
+        <Input label="GSTIN" value={form.gstin} onChange={(e) => set('gstin', e.target.value)} placeholder="e.g. 27AABCT1234F1ZH" />
+        <div className="sm:col-span-2"><Input label="Address" value={form.address} onChange={(e) => set('address', e.target.value)} /></div>
+      </div>
+      <Button onClick={save}>Save Changes</Button>
+    </div>
+  )
+}
+
+function NonGSTSettings() {
+  const qc = useQueryClient()
+  const { data } = useQuery({ queryKey: ['settings', 'non-gst'], queryFn: () => api.get('/settings/non-gst') })
+  const [form, setForm] = useState({ name: '', address: '', phone: '', mobile: '', email: '' })
+  useEffect(() => { if (data?.data) setForm(f => ({ ...f, ...data.data })) }, [data])
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const save = async () => {
+    try {
+      await api.put('/settings/non-gst', form)
+      toast.success('Non-GST settings saved!')
+      qc.invalidateQueries({ queryKey: ['settings', 'non-gst'] })
+    } catch (err) { toast.error(err.message || 'Failed to save') }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-heading mb-1">Non-GST Business Information</h3>
+        <p className="text-xs text-muted">Details for non-GST bills/invoices</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Business Name" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Your business name" />
+        <Input label="Phone" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Phone number" />
+        <Input label="Mobile" value={form.mobile} onChange={(e) => set('mobile', e.target.value)} placeholder="Mobile number" />
+        <Input label="Email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="Email address" />
+        <div className="sm:col-span-2"><Input label="Address" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Business address" /></div>
       </div>
       <Button onClick={save}>Save Changes</Button>
     </div>
@@ -323,7 +359,7 @@ function SMTPSettings() {
 }
 
 const TAB_CONTENT = {
-  company: CompanySettings, profile: ProfileSettings, theme: ThemeSettings,
+  company: CompanySettings, 'non-gst': NonGSTSettings, profile: ProfileSettings, theme: ThemeSettings,
   notifications: NotificationSettings, security: SecuritySettings, smtp: SMTPSettings,
 }
 

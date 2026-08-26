@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, FileText, Send, Trash2, X,
   Eye, IndianRupee, CheckCircle2, XCircle, Clock, Receipt,
-  MoreVertical, ChevronDown,
+  MoreVertical, ChevronDown, Download,
 } from 'lucide-react'
 import { Card, Badge, StatCard } from '../../components/ui'
 import Button from '../../components/ui/Button'
@@ -33,11 +33,15 @@ const STATUS = {
 export default function Invoices() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('invoices')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [showView, setShowView] = useState(null)
   const [showPayment, setShowPayment] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [showNonGst, setShowNonGst] = useState(false)
+
+  const openNonGstBill = () => setShowNonGst(true)
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', search, statusFilter],
@@ -45,12 +49,28 @@ export default function Invoices() {
       const res = await api.get('/invoices', { params: { search, status: statusFilter, limit: 100 } })
       return res
     },
+    enabled: activeTab === 'invoices',
+  })
+
+  const { data: nonGstData, isLoading: nonGstLoading } = useQuery({
+    queryKey: ['non-gst-bills', search],
+    queryFn: async () => {
+      const res = await api.get('/non-gst-bills', { params: { search, limit: 100 } })
+      return res
+    },
+    enabled: activeTab === 'non-gst',
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/invoices/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['invoices'] }); toast.success('Invoice deleted') },
     onError: () => toast.error('Failed to delete invoice'),
+  })
+
+  const deleteNonGstMutation = useMutation({
+    mutationFn: (id) => api.delete(`/non-gst-bills/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['non-gst-bills'] }); toast.success('Bill deleted') },
+    onError: () => toast.error('Failed to delete bill'),
   })
 
   const sendMutation = useMutation({
@@ -66,6 +86,7 @@ export default function Invoices() {
   })
 
   const invoices = data?.data || []
+  const nonGstBills = nonGstData?.data || []
   const totalRevenue = invoices.reduce((s, i) => s + (Number(i.total) || 0), 0)
   const paidAmount = invoices.reduce((s, i) => s + (Number(i.paid_amount) || 0), 0)
   const pendingAmount = invoices.reduce((s, i) => s + (Number(i.balance_due) || 0), 0)
@@ -78,6 +99,11 @@ export default function Invoices() {
     { title: 'Overdue', value: overdueCount, icon: XCircle, iconColor: 'text-red-400', iconBg: 'bg-red-500/10' },
   ]
 
+  const TABS = [
+    { id: 'invoices', label: 'Invoices' },
+    { id: 'non-gst', label: 'Non-GST Bills' },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -85,105 +111,194 @@ export default function Invoices() {
           <h1 className="text-xl font-bold text-heading">Invoices</h1>
           <p className="text-sm text-muted">Manage and track your invoices</p>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="w-4 h-4" /> New Invoice
-        </Button>
+        <div className="flex items-center gap-2">
+          {activeTab === 'non-gst' && (
+            <Button variant="primary" size="sm" onClick={openNonGstBill}>
+              <Plus className="w-4 h-4" /> New Bill
+            </Button>
+          )}
+          {activeTab === 'invoices' && (
+            <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="w-4 h-4" /> New Invoice
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
-        {statCards.map((stat, i) => (
-          <motion.div key={stat.title} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <StatCard {...stat} loading={isLoading} />
-          </motion.div>
+      <div className="flex gap-1 p-1 bg-card rounded-xl border border-app w-fit">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id); setSearch('') }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-primary-500 text-white' : 'text-muted hover:text-heading'}`}
+          >
+            {tab.label}
+          </button>
         ))}
       </div>
 
-      <Card>
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by number, title, or lead..."
-              className="w-full h-9 pl-9 pr-4 rounded-xl border border-app bg-card text-heading placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="h-9 px-3 rounded-xl border border-app bg-card text-heading text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-          >
-            <option value="">All Status</option>
-            {Object.entries(STATUS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
+      {activeTab === 'invoices' && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
+            {statCards.map((stat, i) => (
+              <motion.div key={stat.title} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                <StatCard {...stat} loading={isLoading} />
+              </motion.div>
             ))}
-          </select>
-        </div>
+          </div>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="h-16 shimmer-bg rounded-xl" />)}
+          <Card>
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search by number, title, or lead..."
+                  className="w-full h-9 pl-9 pr-4 rounded-xl border border-app bg-card text-heading placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="h-9 px-3 rounded-xl border border-app bg-card text-heading text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              >
+                <option value="">All Status</option>
+                {Object.entries(STATUS).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="h-16 shimmer-bg rounded-xl" />)}
+              </div>
+            ) : invoices.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted">
+                <Receipt className="w-10 h-10 mx-auto mb-3 text-muted/50" />
+                <p>No invoices found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-app text-left text-muted">
+                      <th className="px-4 py-3 font-medium">Invoice</th>
+                      <th className="px-4 py-3 font-medium">Lead</th>
+                      <th className="px-4 py-3 font-medium">Date</th>
+                      <th className="px-4 py-3 font-medium">Amount</th>
+                      <th className="px-4 py-3 font-medium">Paid</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map(inv => {
+                      const st = STATUS[inv.status] || STATUS.draft
+                      return (
+                        <tr key={inv.id} className="border-b border-app/50 hover:bg-white/5 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-heading">{inv.invoice_number}</div>
+                            <div className="text-xs text-muted truncate max-w-[150px]">{inv.title}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-body">{inv.lead?.contact_name || '—'}</div>
+                            <div className="text-xs text-muted">{inv.lead?.company_name || ''}</div>
+                          </td>
+                          <td className="px-4 py-3 text-body">{formatDate(inv.issue_date)}</td>
+                          <td className="px-4 py-3 font-medium text-heading">{money(inv.total, inv.currency)}</td>
+                          <td className="px-4 py-3 text-body">{money(inv.paid_amount, inv.currency)}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={st.variant}>{st.label}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <ActionsMenu items={[
+                              { label: 'View', icon: <Eye className="w-3.5 h-3.5" />, onClick: () => setShowView(inv.id) },
+                              { label: 'Download PDF', icon: <Download className="w-3.5 h-3.5" />, onClick: () => downloadInvoicePDF(inv) },
+                              ...(inv.status === 'draft' ? [{ label: 'Send', icon: <Send className="w-3.5 h-3.5" />, onClick: () => sendMutation.mutate(inv.id) }] : []),
+                              ...(['draft', 'sent', 'viewed', 'partial'].includes(inv.status) && inv.balance_due > 0 ? [{ label: 'Record Payment', icon: <IndianRupee className="w-3.5 h-3.5" />, onClick: () => setShowPayment(inv) }] : []),
+                              ...(!['paid', 'cancelled'].includes(inv.status) ? [{ label: 'Cancel', icon: <XCircle className="w-3.5 h-3.5" />, onClick: () => cancelMutation.mutate(inv.id) }] : []),
+                              ...(user?.role === 'admin' ? [{ label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true, onClick: () => { if (confirm('Delete this invoice?')) deleteMutation.mutate(inv.id) } }] : []),
+                            ]} />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      {activeTab === 'non-gst' && (
+        <Card>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search by bill number, customer name, or mobile..."
+                className="w-full h-9 pl-9 pr-4 rounded-xl border border-app bg-card text-heading placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              />
+            </div>
           </div>
-        ) : invoices.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted">
-            <Receipt className="w-10 h-10 mx-auto mb-3 text-muted/50" />
-            <p>No invoices found</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-app text-left text-muted">
-                  <th className="px-4 py-3 font-medium">Invoice</th>
-                  <th className="px-4 py-3 font-medium">Lead</th>
-                  <th className="px-4 py-3 font-medium">Date</th>
-                  <th className="px-4 py-3 font-medium">Amount</th>
-                  <th className="px-4 py-3 font-medium">Paid</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map(inv => {
-                  const st = STATUS[inv.status] || STATUS.draft
-                  return (
-                    <tr key={inv.id} className="border-b border-app/50 hover:bg-white/5 transition-colors">
+
+          {nonGstLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <div key={i} className="h-16 shimmer-bg rounded-xl" />)}
+            </div>
+          ) : nonGstBills.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted">
+              <FileText className="w-10 h-10 mx-auto mb-3 text-muted/50" />
+              <p>No non-GST bills found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-app text-left text-muted">
+                    <th className="px-4 py-3 font-medium">Bill #</th>
+                    <th className="px-4 py-3 font-medium">Customer</th>
+                    <th className="px-4 py-3 font-medium">Mobile</th>
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Amount</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nonGstBills.map(bill => (
+                    <tr key={bill.id} className="border-b border-app/50 hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-3 font-medium text-heading">{bill.bill_number}</td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-heading">{inv.invoice_number}</div>
-                        <div className="text-xs text-muted truncate max-w-[150px]">{inv.title}</div>
+                        <div className="text-body">{bill.customer_name}</div>
+                        {bill.customer_address && <div className="text-xs text-muted truncate max-w-[150px]">{bill.customer_address}</div>}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-body">{inv.lead?.contact_name || '—'}</div>
-                        <div className="text-xs text-muted">{inv.lead?.company_name || ''}</div>
-                      </td>
-                      <td className="px-4 py-3 text-body">{formatDate(inv.issue_date)}</td>
-                      <td className="px-4 py-3 font-medium text-heading">{money(inv.total, inv.currency)}</td>
-                      <td className="px-4 py-3 text-body">{money(inv.paid_amount, inv.currency)}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={st.variant}>{st.label}</Badge>
-                      </td>
+                      <td className="px-4 py-3 text-body">{bill.customer_mobile || '—'}</td>
+                      <td className="px-4 py-3 text-body">{formatDate(bill.bill_date)}</td>
+                      <td className="px-4 py-3 font-medium text-heading">{money(bill.total_amount)}</td>
                       <td className="px-4 py-3">
                         <ActionsMenu items={[
-                          { label: 'View', icon: <Eye className="w-3.5 h-3.5" />, onClick: () => setShowView(inv.id) },
-                          ...(inv.status === 'draft' ? [{ label: 'Send', icon: <Send className="w-3.5 h-3.5" />, onClick: () => sendMutation.mutate(inv.id) }] : []),
-                          ...(['draft', 'sent', 'viewed', 'partial'].includes(inv.status) && inv.balance_due > 0 ? [{ label: 'Record Payment', icon: <IndianRupee className="w-3.5 h-3.5" />, onClick: () => setShowPayment(inv) }] : []),
-                          ...(!['paid', 'cancelled'].includes(inv.status) ? [{ label: 'Cancel', icon: <XCircle className="w-3.5 h-3.5" />, onClick: () => cancelMutation.mutate(inv.id) }] : []),
-                          ...(user?.role === 'admin' ? [{ label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true, onClick: () => { if (confirm('Delete this invoice?')) deleteMutation.mutate(inv.id) } }] : []),
+                          { label: 'View & Print', icon: <Eye className="w-3.5 h-3.5" />, onClick: () => downloadNonGstBillPDF(bill) },
+                          ...(user?.role === 'admin' ? [{ label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true, onClick: () => { if (confirm('Delete this bill?')) deleteNonGstMutation.mutate(bill.id) } }] : []),
                         ]} />
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
 
       {showView && <InvoiceViewModal invoiceId={showView} onClose={() => setShowView(null)} />}
       {showPayment && <PaymentModal invoice={showPayment} onClose={() => setShowPayment(null)} onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['invoices'] }); setShowPayment(null) }} />}
       {showForm && <InvoiceForm onClose={() => setShowForm(false)} onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['invoices'] }); setShowForm(false) }} />}
+      {showNonGst && <NonGstBillModal onClose={() => setShowNonGst(false)} onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['non-gst-bills'] }); setShowNonGst(false) }} />}
     </div>
   )
 }
@@ -212,7 +327,12 @@ function InvoiceViewModal({ invoiceId, onClose }) {
             <h3 className="text-lg font-bold text-heading">{invoice.title}</h3>
             <p className="text-sm text-muted">{invoice.lead?.contact_name} — {invoice.lead?.company_name || '—'}</p>
           </div>
-          <Badge variant={st.variant}>{st.label}</Badge>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="xs" onClick={() => downloadInvoicePDF(invoice)}>
+              <Download className="w-3.5 h-3.5" /> Download
+            </Button>
+            <Badge variant={st.variant}>{st.label}</Badge>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -279,6 +399,308 @@ function InvoiceViewModal({ invoiceId, onClose }) {
       </div>
     </Modal>
   )
+}
+
+function NonGstBillModal({ onClose, onSuccess }) {
+  const queryClient = useQueryClient()
+  const fmt = (n) => `Rs ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2 }).format(Number(n) || 0)}`
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings', 'non-gst'],
+    queryFn: () => api.get('/settings/non-gst'),
+  })
+  const company = settingsData?.data || {}
+
+  const [customerName, setCustomerName] = useState('')
+  const [customerAddress, setCustomerAddress] = useState('')
+  const [customerMobile, setCustomerMobile] = useState('')
+  const [items, setItems] = useState([{ name: '', quantity: 1, rate: 0, amount: 0 }])
+  const [savedBill, setSavedBill] = useState(null)
+
+  const addItem = () => setItems([...items, { name: '', quantity: 1, rate: 0, amount: 0 }])
+  const removeItem = (idx) => setItems(items.filter((_, i) => i !== idx))
+
+  const updateItem = (idx, field, value) => {
+    const updated = [...items]
+    updated[idx] = { ...updated[idx], [field]: value }
+    const qty = parseFloat(updated[idx].quantity) || 0
+    const rate = parseFloat(updated[idx].rate) || 0
+    updated[idx].amount = qty * rate
+    setItems(updated)
+  }
+
+  const totalAmount = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
+
+  const saveMutation = useMutation({
+    mutationFn: async (data) => {
+      const res = await api.post('/non-gst-bills', data)
+      return res.data || res
+    },
+    onSuccess: (data) => {
+      setSavedBill(data.data)
+      toast.success('Bill saved!')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to save bill'),
+  })
+
+  const handleSave = () => {
+    if (!customerName) { toast.error('Please enter customer name'); return }
+    if (items.filter(i => i.name).length === 0) { toast.error('Please add at least one item'); return }
+    saveMutation.mutate({
+      customer_name: customerName,
+      customer_address: customerAddress,
+      customer_mobile: customerMobile,
+      items: items.filter(i => i.name),
+      total_amount: totalAmount,
+    })
+  }
+
+  const handleSaveAndGenerate = async () => {
+    if (!customerName) { toast.error('Please enter customer name'); return }
+    if (items.filter(i => i.name).length === 0) { toast.error('Please add at least one item'); return }
+    try {
+      const res = await api.post('/non-gst-bills', {
+        customer_name: customerName,
+        customer_address: customerAddress,
+        customer_mobile: customerMobile,
+        items: items.filter(i => i.name),
+        total_amount: totalAmount,
+      })
+      const bill = res.data?.data || res.data
+      setSavedBill(bill)
+      toast.success('Bill saved!')
+      generatePDF(bill)
+      if (onSuccess) onSuccess()
+      queryClient.invalidateQueries({ queryKey: ['non-gst-bills'] })
+    } catch (err) {
+      toast.error(err.message || 'Failed to save bill')
+    }
+  }
+
+  const generatePDF = (bill = savedBill) => {
+    const billNumber = bill?.bill_number || `BILL-${Date.now().toString().slice(-6)}`
+    const billDate = bill?.bill_date ? new Date(bill.bill_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' } ) : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+
+    const rows = items.filter(i => i.name).map((it, i) => `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${i + 1}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0"><strong>${it.name}</strong></td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center">${it.quantity}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right">${fmt(it.rate)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600">${fmt(it.amount)}</td>
+      </tr>
+    `).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bill</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;padding:40px;font-size:14px;background:#fff}
+      .header{text-align:center;border-bottom:3px solid #0ea5e9;padding-bottom:20px;margin-bottom:28px}
+      .header h1{font-size:28px;font-weight:800;color:#0ea5e9;margin-bottom:4px}
+      .header p{font-size:13px;color:#64748b;margin:2px 0}
+      .customer{display:flex;justify-content:space-between;margin-bottom:28px;padding:16px;background:#f8fafc;border-radius:12px}
+      .customer div{max-width:48%}
+      .customer h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px}
+      .customer p{font-size:13px;margin:2px 0}
+      .customer .name{font-weight:700;color:#0f172a;font-size:15px}
+      table{width:100%;border-collapse:collapse;margin-bottom:24px}
+      th{background:#f1f5f9;text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#475569;font-weight:600}
+      th.r{text-align:right}th.c{text-align:center}
+      .total-row{display:flex;justify-content:flex-end;margin-top:16px}
+      .total-box{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;padding:16px 24px;border-radius:12px;min-width:200px;text-align:right}
+      .total-box p{font-size:12px;opacity:.9}
+      .total-box h2{font-size:24px;font-weight:800;margin-top:4px}
+      .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px}
+      @media print{body{padding:20px}}
+    </style></head><body>
+    <div class="header">
+      <h1>${company.name || 'My Business'}</h1>
+      ${company.address ? `<p>${company.address}</p>` : ''}
+      ${company.phone ? `<p>Phone: ${company.phone}${company.mobile ? ` | Mobile: ${company.mobile}` : ''}</p>` : ''}
+      ${company.email ? `<p>${company.email}</p>` : ''}
+    </div>
+    <div class="customer">
+      <div>
+        <h4>Bill To</h4>
+        <p class="name">${customerName}</p>
+        ${customerMobile ? `<p>Mobile: ${customerMobile}</p>` : ''}
+        ${customerAddress ? `<p>${customerAddress}</p>` : ''}
+      </div>
+      <div style="text-align:right">
+        <h4>Bill Details</h4>
+        <p>Date: ${billDate}</p>
+        <p>Bill #: ${billNumber}</p>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Item</th><th class="c">Qty</th><th class="r">Rate</th><th class="r">Amount</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="total-row">
+      <div class="total-box">
+        <p>Total Amount</p>
+        <h2>${fmt(totalAmount)}</h2>
+      </div>
+    </div>
+    <div class="footer">
+      <p>Thank you for your business!</p>
+      <p><strong>${company.name || 'My Business'}</strong></p>
+    </div>
+    </body></html>`
+
+    const w = window.open('', '_blank', 'width=900,height=1000')
+    if (!w) { toast.error('Please allow pop-ups to download'); return }
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { try { w.print() } catch {} }, 500)
+  }
+
+  return (
+    <Modal open={true} onClose={onClose} title="Non-GST Bill" size="lg">
+      <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 rounded-xl bg-white/3 border border-app">
+          <h4 className="text-sm font-semibold text-heading mb-3">Customer Details</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input label="Customer Name *" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Enter customer name" />
+            <Input label="Mobile No" value={customerMobile} onChange={e => setCustomerMobile(e.target.value)} placeholder="Mobile number" />
+            <div className="sm:col-span-2"><Input label="Address" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Customer address" /></div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-heading">Items</label>
+            <Button type="button" variant="secondary" size="xs" onClick={addItem}>
+              <Plus className="w-3 h-3" /> Add Item
+            </Button>
+          </div>
+          <div className="border border-app rounded-xl overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-app text-muted">
+                  <th className="px-3 py-2 text-left">Item</th>
+                  <th className="px-3 py-2 text-center w-20">Qty</th>
+                  <th className="px-3 py-2 text-right w-24">Rate</th>
+                  <th className="px-3 py-2 text-right w-28">Amount</th>
+                  <th className="px-3 py-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, idx) => (
+                  <tr key={idx} className="border-b border-app/50">
+                    <td className="px-3 py-2">
+                      <input value={it.name} onChange={e => updateItem(idx, 'name', e.target.value)} placeholder="Item name" className="w-full h-8 px-2 rounded-lg border border-app bg-card text-heading text-sm focus:outline-none focus:ring-1 focus:ring-primary-500/30" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} min={0} className="w-full h-8 px-2 rounded-lg border border-app bg-card text-heading text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary-500/30" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input type="number" value={it.rate} onChange={e => updateItem(idx, 'rate', e.target.value)} min={0} step="0.01" className="w-full h-8 px-2 rounded-lg border border-app bg-card text-heading text-sm text-right focus:outline-none focus:ring-1 focus:ring-primary-500/30" />
+                    </td>
+                    <td className="px-3 py-2 text-right text-heading font-medium">{fmt(it.amount)}</td>
+                    <td className="px-3 py-2">
+                      {items.length > 1 && (
+                        <button type="button" onClick={() => removeItem(idx)} className="p-1 rounded hover:bg-red-500/10 text-muted hover:text-red-400 transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-xl bg-primary-500/10 border border-primary-500/20">
+          <span className="text-sm font-medium text-heading">Total Amount</span>
+          <span className="text-xl font-bold text-primary-500">{fmt(totalAmount)}</span>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save'}</Button>
+          <Button variant="primary" size="sm" onClick={handleSaveAndGenerate}>Save & Generate</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function downloadNonGstBillPDF(bill) {
+  const fmt = (n) => `Rs ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2 }).format(Number(n) || 0)}`
+  const billDate = bill.bill_date ? new Date(bill.bill_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+
+  const rows = (bill.items || []).map((it, i) => `
+    <tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${i + 1}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0"><strong>${it.name}</strong></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center">${it.quantity}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right">${fmt(it.rate)}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600">${fmt(it.amount)}</td>
+    </tr>
+  `).join('')
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bill</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;padding:40px;font-size:14px;background:#fff}
+    .header{text-align:center;border-bottom:3px solid #0ea5e9;padding-bottom:20px;margin-bottom:28px}
+    .header h1{font-size:28px;font-weight:800;color:#0ea5e9;margin-bottom:4px}
+    .header p{font-size:13px;color:#64748b;margin:2px 0}
+    .customer{display:flex;justify-content:space-between;margin-bottom:28px;padding:16px;background:#f8fafc;border-radius:12px}
+    .customer div{max-width:48%}
+    .customer h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px}
+    .customer p{font-size:13px;margin:2px 0}
+    .customer .name{font-weight:700;color:#0f172a;font-size:15px}
+    table{width:100%;border-collapse:collapse;margin-bottom:24px}
+    th{background:#f1f5f9;text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#475569;font-weight:600}
+    th.r{text-align:right}th.c{text-align:center}
+    .total-row{display:flex;justify-content:flex-end;margin-top:16px}
+    .total-box{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;padding:16px 24px;border-radius:12px;min-width:200px;text-align:right}
+    .total-box p{font-size:12px;opacity:.9}
+    .total-box h2{font-size:24px;font-weight:800;margin-top:4px}
+    .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <div class="header">
+    <h1>Tax Invoice</h1>
+    <p>Bill #: ${bill.bill_number}</p>
+    <p>Date: ${billDate}</p>
+  </div>
+  <div class="customer">
+    <div>
+      <h4>Bill To</h4>
+      <p class="name">${bill.customer_name}</p>
+      ${bill.customer_mobile ? `<p>Mobile: ${bill.customer_mobile}</p>` : ''}
+      ${bill.customer_address ? `<p>${bill.customer_address}</p>` : ''}
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Item</th><th class="c">Qty</th><th class="r">Rate</th><th class="r">Amount</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="total-row">
+    <div class="total-box">
+      <p>Total Amount</p>
+      <h2>${fmt(bill.total_amount)}</h2>
+    </div>
+  </div>
+  <div class="footer">
+    <p>Thank you for your business!</p>
+  </div>
+  </body></html>`
+
+  const w = window.open('', '_blank', 'width=900,height=1000')
+  if (!w) { toast.error('Please allow pop-ups to download'); return }
+  w.document.write(html)
+  w.document.close()
+  w.focus()
+  setTimeout(() => { try { w.print() } catch {} }, 500)
 }
 
 function PaymentModal({ invoice, onClose, onSuccess }) {
@@ -573,6 +995,129 @@ function InvoiceForm({ onClose, onSuccess }) {
       </form>
     </Modal>
   )
+}
+
+async function downloadInvoicePDF(inv) {
+  try {
+    const [settingsRes, invoiceRes] = await Promise.all([
+      api.get('/settings/company'),
+      api.get(`/invoices/${inv.id}`),
+    ])
+    const company = settingsRes?.data || {}
+    const invoice = invoiceRes?.data || inv
+    const currency = invoice.currency || 'INR'
+    const sym = currency === 'INR' ? 'Rs' : currency === 'USD' ? '$' : currency === 'EUR' ? '\u20AC' : currency || 'Rs'
+    const fmt = (n) => `${sym} ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2 }).format(Number(n) || 0)}`
+    const items = invoice.items || []
+    const rows = items.map((it, i) => {
+      const qty = parseFloat(it.quantity) || 0
+      const price = parseFloat(it.unit_price) || 0
+      const taxRate = parseFloat(it.tax_rate) || 0
+      const discount = parseFloat(it.discount_value) || 0
+      const base = qty * price - discount
+      const cgstRate = taxRate / 2
+      const sgstRate = taxRate / 2
+      const cgstAmount = (base * cgstRate) / 100
+      const sgstAmount = (base * sgstRate) / 100
+      const total = base + cgstAmount + sgstAmount
+       return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;white-space:nowrap">${i + 1}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;white-space:nowrap"><strong>${it.name}</strong></td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${qty} ${it.unit || ''}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${fmt(price)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${fmt(cgstAmount)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${fmt(sgstAmount)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;white-space:nowrap">${fmt(total)}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoice.invoice_number}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;padding:40px;font-size:13px;background:#fff}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0ea5e9;padding-bottom:24px;margin-bottom:28px}
+      .company{display:flex;align-items:center;gap:16px}
+      .logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:800;overflow:hidden}
+      .logo img{width:100%;height:100%;object-fit:cover}
+      .company-info h2{font-size:20px;font-weight:800;color:#0f172a}
+      .company-info p{font-size:12px;color:#64748b;margin-top:2px}
+      .doc-title{font-size:32px;font-weight:800;letter-spacing:1px;color:#0ea5e9;text-align:right}
+      .doc-meta{text-align:right;margin-top:6px}
+      .doc-meta p{font-size:12px;color:#64748b}
+      .parties{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:28px}
+      .parties h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:8px}
+      .parties p{font-size:13px;margin:2px 0}
+      .parties .name{font-weight:700;color:#0f172a;font-size:14px}
+      table{width:100%;border-collapse:collapse;margin-bottom:24px}
+      th{background:#f1f5f9;text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#475569;font-weight:600}
+      th.r{text-align:right}
+      .totals{width:320px;margin-left:auto}
+      .totals tr td{border:none;padding:6px 12px}
+      .totals .grand td{border-top:2px solid #0ea5e9;font-weight:800;font-size:16px;color:#0f172a}
+      .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:11px}
+      @media print{body{padding:20px}}
+    </style></head><body>
+    <div class="header">
+      <div class="company">
+        <div class="logo">${company.logo ? `<img src="${company.logo}" alt="logo"/>` : (company.name?.charAt(0) || 'L')}</div>
+        <div class="company-info">
+          <h2>${company.name || 'Your Company'}</h2>
+          ${company.address ? `<p>${company.address}</p>` : ''}
+          ${company.phone ? `<p>Phone: ${company.phone}</p>` : ''}
+          ${company.gstin ? `<p>GSTIN: ${company.gstin}</p>` : ''}
+          ${company.website ? `<p>${company.website}</p>` : ''}
+        </div>
+      </div>
+      <div>
+        <div class="doc-title">TAX INVOICE</div>
+        <div class="doc-meta">
+          <p><strong>${invoice.invoice_number}</strong></p>
+          <p>Date: ${formatDate(invoice.issue_date)}</p>
+        </div>
+      </div>
+    </div>
+    <div class="parties">
+      <div>
+        <h4>Bill To</h4>
+        <p class="name">${invoice.lead?.contact_name || '—'}</p>
+        ${invoice.lead?.company_name ? `<p>${invoice.lead.company_name}</p>` : ''}
+        ${invoice.lead?.contact_email ? `<p>${invoice.lead.contact_email}</p>` : ''}
+      </div>
+      <div>
+        <h4>Ship To</h4>
+        <p class="name">${invoice.lead?.company_name || invoice.lead?.contact_name || '—'}</p>
+        ${invoice.lead?.address ? `<p>${invoice.lead.address}</p>` : ''}
+        ${invoice.lead?.city ? `<p>${invoice.lead.city || ''} ${invoice.lead.pincode || ''}</p>` : ''}
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">CGST (9%)</th><th class="r">SGST (9%)</th><th class="r">Amount</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No items</td></tr>'}</tbody>
+    </table>
+    <table class="totals">
+      <tr><td>Subtotal</td><td style="text-align:right">${fmt(invoice.subtotal)}</td></tr>
+      <tr><td>CGST (9%)</td><td style="text-align:right">${fmt(invoice.tax_amount / 2)}</td></tr>
+      <tr><td>SGST (9%)</td><td style="text-align:right">${fmt(invoice.tax_amount / 2)}</td></tr>
+      <tr class="grand"><td>Total</td><td style="text-align:right">${fmt(invoice.total)}</td></tr>
+    </table>
+    <div class="footer">
+      <p><strong>${company.name || 'Your Company'}</strong></p>
+      ${company.gstin ? `<p>GSTIN: ${company.gstin}</p>` : ''}
+      <p>This is a computer-generated invoice.</p>
+    </div>
+    </body></html>`
+
+    const w = window.open('', '_blank', 'width=900,height=1000')
+    if (!w) { toast.error('Please allow pop-ups to download'); return }
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { try { w.print() } catch { /* ignore */ } }, 500)
+  } catch (err) {
+    toast.error('Failed to generate PDF')
+  }
 }
 
 function ActionsMenu({ items, up = false }) {

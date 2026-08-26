@@ -36,7 +36,7 @@ export default function FinancialReports() {
     { title: 'Total Sales (Paid)', value: money(summary.sales.total), subtitle: `${summary.sales.count} paid invoices`, icon: TrendingUp, iconColor: 'text-green-400', iconBg: 'bg-green-500/10' },
     { title: 'Total Purchases', value: money(summary.purchases.total), subtitle: `${summary.purchases.count} bills`, icon: Truck, iconColor: 'text-blue-400', iconBg: 'bg-blue-500/10' },
     { title: 'Gross Profit', value: money(summary.profit.gross), subtitle: 'Sales - Purchases', icon: IndianRupee, iconColor: 'text-primary-500', iconBg: 'bg-primary-500/10' },
-    { title: 'Net GST', value: money(Math.abs(summary.gst.net)), subtitle: summary.gst.net >= 0 ? 'Payable to govt' : 'Carry forward credit', icon: summary.gst.net >= 0 ? ArrowUpRight : ArrowDownRight, iconColor: summary.gst.net >= 0 ? 'text-red-400' : 'text-green-400', iconBg: summary.gst.net >= 0 ? 'bg-red-500/10' : 'bg-green-500/10' },
+    { title: 'Net GST', value: summary.gst.net < 0 ? `Rs -${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.abs(summary.gst.net))}` : money(summary.gst.net), subtitle: summary.gst.net >= 0 ? 'Payable to govt' : 'Carry forward credit', icon: summary.gst.net >= 0 ? ArrowUpRight : ArrowDownRight, iconColor: summary.gst.net >= 0 ? 'text-red-400' : 'text-green-400', iconBg: summary.gst.net >= 0 ? 'bg-red-500/10' : 'bg-green-500/10' },
   ]
 
   return (
@@ -96,7 +96,7 @@ export default function FinancialReports() {
               <span className="text-xs text-muted">Net GST</span>
             </div>
             <p className={cn('text-xl font-bold', summary.gst.net >= 0 ? 'text-red-400' : 'text-emerald-400')}>
-              {summary.gst.net >= 0 ? '+' : '-'}{money(Math.abs(summary.gst.net))}
+              {summary.gst.net >= 0 ? money(summary.gst.net) : `Rs -${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.abs(summary.gst.net))}`}
             </p>
             <p className="text-xs text-muted mt-1">{summary.gst.net >= 0 ? 'Payable to government' : 'Carry forward credit'}</p>
           </div>

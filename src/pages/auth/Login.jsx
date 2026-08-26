@@ -48,7 +48,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex bg-app">
       {/* Left Panel */}
-      <div className="hidden lg:flex flex-1 relative overflow-hidden bg-gradient-to-br from-[#0B1120] via-[#0d1a2e] to-[#0B1120] items-center justify-center p-12">
+      <div className="hidden lg:flex flex-1 relative overflow-hidden bg-gradient-to-br from-[#0B1120] via-[#0d1a2e] to-[#0B1120] dark:from-[#0B1120] dark:via-[#0d1a2e] dark:to-[#0B1120] items-center justify-center p-12">
         <FloatingOrb className="w-96 h-96 bg-primary-500 -top-20 -left-20" delay={0} />
         <FloatingOrb className="w-64 h-64 bg-brand-blue bottom-20 right-10" delay={2} />
         <FloatingOrb className="w-48 h-48 bg-brand-purple top-1/2 left-1/3" delay={4} />
@@ -62,10 +62,10 @@ export default function Login() {
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-brand-blue flex items-center justify-center mx-auto mb-8 shadow-glow">
               <Zap className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4 leading-tight">
               Close more deals with <span className="text-primary-500">LeadFlow</span>
             </h1>
-            <p className="text-lg text-gray-400 mb-10">
+            <p className="text-lg text-gray-500 dark:text-gray-400 mb-10">
               The modern CRM built for high-performance sales teams.
             </p>
 
@@ -86,8 +86,8 @@ export default function Login() {
                     <div className="w-2 h-2 rounded-full bg-primary-500" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{f.title}</p>
-                    <p className="text-xs text-gray-400">{f.desc}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{f.title}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{f.desc}</p>
                   </div>
                 </motion.div>
               ))}
